@@ -1,0 +1,7 @@
+/dataset
+/env
+/finger_region/output
+/fingerprint_models
+/fingerprint_recognition/dataset
+/fingerprint_recognition/prompt.py
+/fingerprint_results
