@@ -5,6 +5,7 @@ import com.example.fingerprint_backend.model.access.CameraImage;
 import com.example.fingerprint_backend.model.auth.Employee;
 import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintRecognitionModel;
 import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintSegmentationModel;
+import jakarta.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -20,8 +21,10 @@ import java.time.LocalDateTime;
 @Builder
 public class Recognition {
     @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
+    @Nullable
     @ManyToOne
     @JoinColumn(name = "camera_image_id")
     private CameraImage cameraImage;

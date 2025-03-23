@@ -19,7 +19,7 @@ public class FingerprintSample {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
-    @ManyToOne
+    @ManyToOne(cascade = CascadeType.MERGE)
     @JoinColumn(name = "employee_id")
     private Employee employee;
 
@@ -31,5 +31,7 @@ public class FingerprintSample {
     private LocalDateTime capturedAt;
     private Double quality;
     private Double lastRecognitionConfidence;
-    private String relativePath;
+
+    @Version
+    private Long version;
 }

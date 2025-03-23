@@ -1,20 +1,26 @@
 package com.example.fingerprint_backend.service;
 
+import com.example.fingerprint_backend.model.access.AccessLog;
+import com.example.fingerprint_backend.model.access.Area;
+import com.example.fingerprint_backend.model.access.CameraImage;
 import com.example.fingerprint_backend.model.auth.Employee;
 import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintSample;
-import com.example.fingerprint_backend.model.biometrics.recognition.RecognitionResult;
 import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintSegmentationModel;
 import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintRecognitionModel;
+import com.example.fingerprint_backend.model.biometrics.recognition.Recognition;
+import com.example.fingerprint_backend.model.biometrics.recognition.RecognitionResult;
+import com.example.fingerprint_backend.repository.access.AccessLogRepository;
 import com.example.fingerprint_backend.repository.auth.EmployeeRepository;
 import com.example.fingerprint_backend.repository.biometrics.fingerprint.FingerprintSampleRepository;
 import com.example.fingerprint_backend.repository.biometrics.fingerprint.FingerprintSegmentationModelRepository;
 import com.example.fingerprint_backend.repository.biometrics.fingerprint.FingerprintRecognitionModelRepository;
+import com.example.fingerprint_backend.repository.biometrics.recognition.RecognitionRepository;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.SneakyThrows;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -29,6 +35,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class FingerprintService {
     private static final String VENV_PYTHON = "fingerprint_training/env/Scripts/python.exe"; // Windows
     private static final String RECOGNITION_RESULT_FILE = "recognition_result.json";
@@ -36,25 +43,27 @@ public class FingerprintService {
     private static final String PYTHON_SCRIPT_PATH = "fingerprint_training/fingerprint_recognition.py";
     private static final String DATASET_BASE_PATH = "fingerprint_training/fingerprint_adapting_dataset/";
 
-    @Autowired
-    private EmployeeRepository employeeRepository;
+    private final EmployeeRepository employeeRepository;
+    private final FingerprintSampleRepository fingerprintSampleRepository;
+    private final FingerprintSegmentationModelRepository segmentationModelRepository;
+    private final FingerprintRecognitionModelRepository recognitionModelRepository;
+    private final RecognitionRepository recognitionRepository;
+    private final AccessLogRepository accessLogRepository;
 
-    @Autowired
-    private FingerprintSampleRepository fingerprintSampleRepository;
+    @Transactional
+    public FingerprintSample registerFingerprint(
+            String employeeId,
+            MultipartFile file,
+            String position,
+            String segmentationModelId,
+            String recognitionModelId) throws Exception {
 
-    @Autowired
-    private FingerprintSegmentationModelRepository segmentationModelRepository;
-
-    @Autowired
-    private FingerprintRecognitionModelRepository recognitionModelRepository;
-
-    @SneakyThrows
-    public List<String> registerFingerprints(String employeeId, List<MultipartFile> files,
-                                             String segmentationModelId, String recognitionModelId) {
+        // Validate employee exists
         Optional<Employee> employeeOpt = employeeRepository.findById(employeeId);
         Employee employee = employeeOpt.orElseThrow(() ->
                 new Exception("Employee with ID " + employeeId + " not found"));
 
+        // Validate models exist
         Optional<FingerprintSegmentationModel> segModelOpt = segmentationModelRepository.findById(segmentationModelId);
         FingerprintSegmentationModel segmentationModel = segModelOpt.orElseThrow(() ->
                 new Exception("Segmentation model with ID " + segmentationModelId + " not found"));
@@ -66,7 +75,7 @@ public class FingerprintService {
         String segmentationModelPath = segmentationModel.getPathName();
         String recognitionModelPath = recognitionModel.getPathName();
 
-        String employeeDir = DATASET_BASE_PATH + employeeId;
+        String employeeDir = DATASET_BASE_PATH + "/" + employeeId;
         Path employeePath = Paths.get(employeeDir);
 
         try {
@@ -75,58 +84,122 @@ public class FingerprintService {
             throw new Exception("Failed to create directory for employee " + employeeId, e);
         }
 
-        List<String> savedFilePaths = new ArrayList<>();
+        // Process the fingerprint image
+        String originalFilename = file.getOriginalFilename();
+        String extension = originalFilename != null ?
+                originalFilename.substring(originalFilename.lastIndexOf(".")) : ".bmp";
+
+        String filename = employeeId + "_" + position + extension;
+        Path filePath = Paths.get(employeeDir, filename);
+
+        try {
+            byte[] fileBytes = file.getBytes();
+            Files.write(filePath, fileBytes);
+
+            FingerprintSample sample = FingerprintSample.builder()
+                    .employee(employee)
+                    .image(filename)
+                    .imageData(fileBytes)
+                    .position(position)
+                    .capturedAt(LocalDateTime.now())
+                    .quality(1.0)
+                    .build();
+
+            FingerprintSample savedSample = fingerprintSampleRepository.save(sample);
+
+            // Update the fingerprint model
+            updateFingerprintModel(segmentationModelPath, recognitionModelPath);
+
+            return savedSample;
+
+        } catch (IOException e) {
+            throw new Exception("Failed to save fingerprint image: " + e.getMessage(), e);
+        }
+    }
+
+
+    @Transactional
+    public List<FingerprintSample> registerFingerprints(
+            String employeeId,
+            List<MultipartFile> files,
+            List<String> positions,
+            String segmentationModelId,
+            String recognitionModelId) throws Exception {
+
+        // Validate employee exists
+        Optional<Employee> employeeOpt = employeeRepository.findById(employeeId);
+        Employee employee = employeeOpt.orElseThrow(() ->
+                new Exception("Employee with ID " + employeeId + " not found"));
+
+        // Validate models exist
+        Optional<FingerprintSegmentationModel> segModelOpt = segmentationModelRepository.findById(segmentationModelId);
+        FingerprintSegmentationModel segmentationModel = segModelOpt.orElseThrow(() ->
+                new Exception("Segmentation model with ID " + segmentationModelId + " not found"));
+
+        Optional<FingerprintRecognitionModel> recModelOpt = recognitionModelRepository.findById(recognitionModelId);
+        FingerprintRecognitionModel recognitionModel = recModelOpt.orElseThrow(() ->
+                new Exception("Recognition model with ID " + recognitionModelId + " not found"));
+
+        String segmentationModelPath = segmentationModel.getPathName();
+        String recognitionModelPath = recognitionModel.getPathName();
+
+        String employeeDir = DATASET_BASE_PATH + "/" + employeeId;
+        Path employeePath = Paths.get(employeeDir);
+
+        try {
+            Files.createDirectories(employeePath);
+        } catch (IOException e) {
+            throw new Exception("Failed to create directory for employee " + employeeId, e);
+        }
+
         List<FingerprintSample> samples = new ArrayList<>();
 
+        // Process each fingerprint image
         for (int i = 0; i < files.size(); i++) {
             MultipartFile file = files.get(i);
+            String position = positions.get(i);
+
             String originalFilename = file.getOriginalFilename();
             String extension = originalFilename != null ?
                     originalFilename.substring(originalFilename.lastIndexOf(".")) : ".bmp";
 
-            String filename = employeeId + "_" + (i + 1) + extension;
+            String filename = employeeId + "_" + position + extension;
             Path filePath = Paths.get(employeeDir, filename);
             String relativePath = employeeId + "/" + filename;
 
             try {
                 byte[] fileBytes = file.getBytes();
                 Files.write(filePath, fileBytes);
-                savedFilePaths.add(filePath.toString());
 
                 FingerprintSample sample = FingerprintSample.builder()
-                        .id(UUID.randomUUID().toString())
                         .employee(employee)
-                        .image(filePath.toString())
+                        .image(filename)
                         .imageData(fileBytes)
-                        .position("finger_" + (i + 1))
+                        .position(position)
                         .capturedAt(LocalDateTime.now())
                         .quality(1.0)
-                        .relativePath(relativePath)
                         .build();
 
-                samples.add(sample);
+                samples.add(fingerprintSampleRepository.save(sample));
 
             } catch (IOException e) {
-                throw new Exception("Failed to save fingerprint image", e);
+                throw new Exception("Failed to save fingerprint image: " + e.getMessage(), e);
             }
         }
 
-//        fingerprintSampleRepository.saveAll(samples);
-//
-//        if (employee.getFingerprintDatasetId() == null) {
-//            employee.setFingerprintDatasetId(employeeId);
-//            employeeRepository.save(employee);
-//        }
+        employeeRepository.save(employee);
 
+        // Update the fingerprint model
         updateFingerprintModel(segmentationModelPath, recognitionModelPath);
 
-        return savedFilePaths;
+        return samples;
     }
 
-    public RecognitionResult recognizeFingerprint(MultipartFile fingerprintImage,
-                                                  String segmentationModelId,
-                                                  String recognitionModelId) throws Exception {
-        // Find models from specific repositories
+    public RecognitionResult recognizeFingerprint(
+            MultipartFile fingerprintImage,
+            String segmentationModelId,
+            String recognitionModelId) throws Exception {
+
         Optional<FingerprintSegmentationModel> segModelOpt = segmentationModelRepository.findById(segmentationModelId);
         FingerprintSegmentationModel segmentationModel = segModelOpt.orElseThrow(() ->
                 new Exception("Segmentation model with ID " + segmentationModelId + " not found"));
@@ -167,6 +240,101 @@ public class FingerprintService {
                 System.err.println("Failed to delete temporary file: " + e.getMessage());
             }
         }
+    }
+
+    @Transactional
+    public AccessLog createAccessLog(
+            String employeeId,
+            Area area,
+            String accessType,
+            boolean isMatched,
+            double confidence,
+            String segmentationModelId,
+            String recognitionModelId) {
+
+        LocalDateTime now = LocalDateTime.now();
+
+        // Create access log
+        AccessLog accessLog = AccessLog.builder()
+                .area(area)
+                .timestamp(now)
+                .accessType(accessType)
+                .build();
+
+        // Handle employee if matched
+        if (isMatched && employeeId != null) {
+            Optional<Employee> employeeOpt = employeeRepository.findById(employeeId);
+
+            if (employeeOpt.isPresent()) {
+                Employee employee = employeeOpt.get();
+                accessLog.setEmployee(employee);
+
+                boolean isAuthorized = determineAuthorization(employee, area);
+                accessLog.setAuthorized(isAuthorized);
+            } else {
+                // Employee ID matched but not found in database
+                accessLog.setAuthorized(false);
+            }
+        } else {
+            // No match or null employeeId
+            accessLog.setAuthorized(false);
+        }
+
+        // Save the access log
+        AccessLog savedAccessLog = accessLogRepository.save(accessLog);
+
+        // Create and link recognition record
+        try {
+            FingerprintSegmentationModel segmentationModel = segmentationModelRepository.findById(segmentationModelId)
+                    .orElseThrow(() -> new Exception("Segmentation model not found"));
+
+            FingerprintRecognitionModel recognitionModel = recognitionModelRepository.findById(recognitionModelId)
+                    .orElseThrow(() -> new Exception("Recognition model not found"));
+
+            // Find employee if exists
+            Employee employee = null;
+            if (employeeId != null) {
+                employee = employeeRepository.findById(employeeId).orElse(null);
+            }
+
+            Recognition recognition = Recognition.builder()
+                    .employee(employee)
+                    .accessLog(savedAccessLog) // Link to access log
+                    .fingerprintSegmentationModel(segmentationModel)
+                    .fingerprintRecognitionModel(recognitionModel)
+                    .timestamp(now)
+                    .confidence((float) confidence)
+                    .build();
+
+            recognitionRepository.save(recognition);
+
+        } catch (Exception e) {
+            // Log but don't fail the transaction
+            System.err.println("Failed to create recognition record: " + e.getMessage());
+        }
+
+        return savedAccessLog;
+    }
+
+    /**
+     * Determine if an employee is authorized to access an area
+     * This can be expanded with more complex authorization logic
+     */
+    private boolean determineAuthorization(Employee employee, Area area) {
+        // If no area specified, assume general access is allowed
+        if (area == null) {
+            return true;
+        }
+
+        // Check if employee is active
+        if (employee == null) {
+            return false;
+        }
+
+        // TODO: Add more complex authorization logic here
+        // Example: Check employee security clearance against area security level
+        // This is a simplified placeholder implementation
+        return true;
     }
 
     private void updateFingerprintModel(String segmentationModelPath, String recognitionModelPath)

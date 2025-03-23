@@ -2,6 +2,7 @@ package com.example.fingerprint_backend.model.biometrics.fingerprint;
 
 import com.example.fingerprint_backend.model.base.Model;
 import com.example.fingerprint_backend.model.biometrics.recognition.Recognition;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.FetchType;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -21,9 +22,11 @@ import java.util.List;
 @SuperBuilder
 public class FingerprintSegmentationModel extends Model {
 
+    @JsonIgnore
     @OneToMany(mappedBy = "fingerprintSegmentationModel", fetch = FetchType.LAZY)
     private List<Recognition> recognitions;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "fingerprintSegmentationModel", fetch = FetchType.LAZY)
     private List<FSegmentationTData> regionTData;
 }

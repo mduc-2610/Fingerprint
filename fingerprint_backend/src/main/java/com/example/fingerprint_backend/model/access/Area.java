@@ -1,5 +1,6 @@
 package com.example.fingerprint_backend.model.access;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -20,9 +21,11 @@ public class Area {
     private int securityLevel;
     private String description;
 
-    @OneToMany(mappedBy = "area")
+    @JsonIgnore
+    @OneToMany(mappedBy = "area", fetch = FetchType.LAZY)
     private List<Camera> cameras;
 
-    @OneToMany(mappedBy = "area")
+    @JsonIgnore
+    @OneToMany(mappedBy = "area", fetch = FetchType.LAZY)
     private List<AccessLog> accessLogs;
 }

@@ -83,7 +83,7 @@ public class DataGenerator {
             return;
         }
 
-        List<Area> areas = createAreas(5);
+        List<Area> areas = createAreas(10);
 
         List<Camera> cameras = createCameras(areas);
 
@@ -152,15 +152,32 @@ public class DataGenerator {
 
     private List<Area> createAreas(int count) {
         List<Area> areas = new ArrayList<>();
-        for (int i = 0; i < count; i++) {
+
+        // Define real area data
+        List<String[]> realAreas = new ArrayList<>();
+        realAreas.add(new String[]{"Research and Development Lab", "High-security laboratory for product research and development", "5"});
+        realAreas.add(new String[]{"Executive Office Suite", "Executive management offices and conference rooms", "5"});
+        realAreas.add(new String[]{"Server Room", "Primary data center and server infrastructure", "5"});
+        realAreas.add(new String[]{"Finance Department", "Financial records and accounting offices", "4"});
+        realAreas.add(new String[]{"Human Resources", "Personnel files and HR management offices", "4"});
+        realAreas.add(new String[]{"Manufacturing Floor", "Main production and assembly area", "3"});
+        realAreas.add(new String[]{"Quality Control Lab", "Testing and quality assurance facilities", "3"});
+        realAreas.add(new String[]{"Warehouse", "Inventory storage and shipping facilities", "2"});
+        realAreas.add(new String[]{"Main Lobby", "Reception area and visitor check-in", "1"});
+        realAreas.add(new String[]{"Employee Cafeteria", "Staff dining and break areas", "1"});
+
+        // Create Area objects with real data
+        for (int i = 0; i < Math.min(count, realAreas.size()); i++) {
+            String[] areaData = realAreas.get(i);
             Area area = Area.builder()
                     .id(UUID.randomUUID().toString())
-                    .name(faker.company().name())
-                    .securityLevel(random.nextInt(5) + 1)
-                    .description(faker.lorem().sentence())
+                    .name(areaData[0])
+                    .description(areaData[1])
+                    .securityLevel(Integer.parseInt(areaData[2]))
                     .build();
             areas.add(areaRepository.save(area));
         }
+
         return areas;
     }
 
@@ -216,30 +233,6 @@ public class DataGenerator {
         }
 
         return employees;
-    }
-
-    private List<FingerprintSample> createFingerprintSamples(List<Employee> employees) {
-        List<FingerprintSample> samples = new ArrayList<>();
-
-        for (Employee employee : employees) {
-            int sampleCount = random.nextInt(3) + 1;
-            for (int i = 0; i < sampleCount; i++) {
-                FingerprintSample sample = FingerprintSample.builder()
-                        .id(UUID.randomUUID().toString())
-                        .employee(employee)
-                        .image("fingerprint_" + employee.getId() + "_" + i + ".jpg")
-                        .imageData(new byte[1024])
-                        .position(getRandomFingerPosition())
-                        .capturedAt(LocalDateTime.ofInstant(
-                                faker.date().past(30, TimeUnit.DAYS).toInstant(),
-                                ZoneId.systemDefault()))
-                        .quality(random.nextDouble() * 25 + 75)
-                        .relativePath("fake/path/" + employee.getId() + "/" + i + ".jpg")
-                        .build();
-                samples.add(fingerprintSampleRepository.save(sample));
-            }
-        }
-        return samples;
     }
 
     private List<FingerprintRecognitionModel> loadRecognitionModel(String fileName) throws IOException {
@@ -316,46 +309,4 @@ public class DataGenerator {
         return trainingDataList;
     }
 
-    private List<CameraImage> createCameraImages(List<Camera> cameras) {
-        List<CameraImage> images = new ArrayList<>();
-        for (Camera camera : cameras) {
-            int imageCount = random.nextInt(5) + 1;
-            for (int i = 0; i < imageCount; i++) {
-                CameraImage image = CameraImage.builder()
-                        .id(UUID.randomUUID().toString())
-                        .camera(camera)
-                        .image("camera_capture_" + camera.getId() + "_" + i + ".jpg")
-                        .imageData(new byte[4096])
-                        .capturedAt(LocalDateTime.ofInstant(
-                                faker.date().past(7, TimeUnit.DAYS).toInstant(),
-                                ZoneId.systemDefault()))
-                        .build();
-                images.add(image);
-            }
-        }
-        return images;
-    }
-
-    private List<AccessLog> createAccessLogs(List<Employee> employees, List<Area> areas) {
-        List<AccessLog> logs = new ArrayList<>();
-        String[] accessTypes = {"entry", "exit"};
-
-        for (Employee employee : employees) {
-            int logCount = random.nextInt(10) + 1;
-            for (int i = 0; i < logCount; i++) {
-                AccessLog log = AccessLog.builder()
-                        .id(UUID.randomUUID().toString())
-                        .employee(employee)
-                        .area(areas.get(random.nextInt(areas.size())))
-                        .timestamp(LocalDateTime.ofInstant(
-                                faker.date().past(14, TimeUnit.DAYS).toInstant(),
-                                ZoneId.systemDefault()))
-                        .isAuthorized(random.nextFloat() > 0.1f)
-                        .accessType(accessTypes[random.nextInt(accessTypes.length)])
-                        .build();
-                logs.add(accessLogRepository.save(log));
-            }
-        }
-        return logs;
-    }
 }
