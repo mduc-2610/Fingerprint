@@ -34,13 +34,16 @@ class IoU(Metric):
         self.intersection.assign(0.0)
         self.union.assign(0.0)
 
-def load_models():
+def load_models(
+        segmentation_model_path_name,
+        recognition_model_path_name, 
+        ):
     """Load the fingerprint recognition and segmentation models"""
     try:
         # Define model paths relative to script location
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        recognition_model_path = os.path.join(script_dir, 'fingerprint_models/recognition/siamese_network.keras')
-        segmentation_model_path = os.path.join(script_dir, 'fingerprint_models/segmentation/unet_segmentation.keras')
+        recognition_model_path = os.path.join(script_dir, f'fingerprint_models/recognition/{recognition_model_path_name}.keras')
+        segmentation_model_path = os.path.join(script_dir, f'fingerprint_models/segmentation/{segmentation_model_path_name}.keras')
 
         # Load models
         recognition_model = load_model(recognition_model_path, custom_objects={'IoU': IoU})
@@ -237,7 +240,7 @@ def recognize_employee(image_path, embedding_model, segmentation_model, recognit
             
         # Save result to JSON file
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        result_path = os.path.join(script_dir, "fingerprint_results", "recognition_result.json")
+        result_path = os.path.join(script_dir, "reports", "recognition_result.json")
         
         with open(result_path, 'w') as f:
             json.dump(result, f)
@@ -252,16 +255,22 @@ def recognize_employee(image_path, embedding_model, segmentation_model, recognit
         
         # Save error result to JSON file
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        result_path = os.path.join(script_dir, "fingerprint_results", "recognition_result.json")
+        result_path = os.path.join(script_dir, "reports", "recognition_result.json")
         
         with open(result_path, 'w') as f:
             json.dump(error_result, f)
             
         return error_result
 
-def update_model():
+def update_model(
+    segmentation_model_path_name,
+    recognition_model_path_name,
+):
     """Update fingerprint recognition model with new data"""
-    recognition_model, segmentation_model, recognition_shape, segmentation_shape = load_models()
+    recognition_model, segmentation_model, recognition_shape, segmentation_shape = load_models(
+        segmentation_model_path_name=segmentation_model_path_name,
+        recognition_model_path_name=recognition_model_path_name, 
+    )
     if recognition_model is None or segmentation_model is None:
         print("Failed to load models. Please check model paths and formats.", file=sys.stderr)
         return False
@@ -289,11 +298,16 @@ def main():
     # Command line arguments
     parser.add_argument('--update-model', action='store_true', help='Update fingerprint model with new data')
     parser.add_argument('--recognize', type=str, help='Recognize employee from fingerprint image')
+    parser.add_argument('--seg-path-name', type=str, help='Segmentation model path name')
+    parser.add_argument('--rec-path-name', type=str, help='Recognition model path name')
 
     args = parser.parse_args()
 
     # Load models
-    recognition_model, segmentation_model, recognition_shape, segmentation_shape = load_models()
+    recognition_model, segmentation_model, recognition_shape, segmentation_shape = load_models(
+        segmentation_model_path_name=args.seg_path_name,
+        recognition_model_path_name=args.rec_path_name, 
+    )
     if recognition_model is None or segmentation_model is None:
         print("Failed to load models. Please check model paths and formats.", file=sys.stderr)
         sys.exit(1)
@@ -303,7 +317,10 @@ def main():
 
     # Handle update model command
     if args.update_model:
-        success = update_model()
+        success = update_model(
+            recognition_model_path_name=args.rec_path_name, 
+            segmentation_model_path_name=args.seg_path_name
+        )
         if success:
             print("Model updated successfully")
             sys.exit(0)

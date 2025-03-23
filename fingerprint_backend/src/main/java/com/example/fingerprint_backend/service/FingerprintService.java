@@ -1,13 +1,15 @@
 package com.example.fingerprint_backend.service;
 
-import com.example.fingerprint_backend.custom_exception.FingerprintProcessingException;
-import com.example.fingerprint_backend.model.Employee;
-import com.example.fingerprint_backend.model.FingerprintSample;
-import com.example.fingerprint_backend.model.RecognitionResult;
-import com.example.fingerprint_backend.repository.EmployeeRepository;
-import com.example.fingerprint_backend.repository.FingerprintSampleRepository;
+import com.example.fingerprint_backend.model.auth.Employee;
+import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintSample;
+import com.example.fingerprint_backend.model.biometrics.recognition.RecognitionResult;
+import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintSegmentationModel;
+import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintRecognitionModel;
+import com.example.fingerprint_backend.repository.auth.EmployeeRepository;
+import com.example.fingerprint_backend.repository.biometrics.fingerprint.FingerprintSampleRepository;
+import com.example.fingerprint_backend.repository.biometrics.fingerprint.FingerprintSegmentationModelRepository;
+import com.example.fingerprint_backend.repository.biometrics.fingerprint.FingerprintRecognitionModelRepository;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.SneakyThrows;
@@ -30,7 +32,7 @@ import java.util.UUID;
 public class FingerprintService {
     private static final String VENV_PYTHON = "fingerprint_training/env/Scripts/python.exe"; // Windows
     private static final String RECOGNITION_RESULT_FILE = "recognition_result.json";
-    private static final String SCRIPT_DIR = "fingerprint_training/fingerprint_results";
+    private static final String SCRIPT_DIR = "fingerprint_training/reports";
     private static final String PYTHON_SCRIPT_PATH = "fingerprint_training/fingerprint_recognition.py";
     private static final String DATASET_BASE_PATH = "fingerprint_training/fingerprint_adapting_dataset/";
 
@@ -40,41 +42,48 @@ public class FingerprintService {
     @Autowired
     private FingerprintSampleRepository fingerprintSampleRepository;
 
-    /**
-     * Registers new fingerprint images for an employee
-     *
-     * @param employeeId The ID of the employee
-     * @param files List of fingerprint image files
-     * @return List of paths where images were saved
-     */
+    @Autowired
+    private FingerprintSegmentationModelRepository segmentationModelRepository;
+
+    @Autowired
+    private FingerprintRecognitionModelRepository recognitionModelRepository;
+
     @SneakyThrows
-    public List<String> registerFingerprints(String employeeId, List<MultipartFile> files) throws FingerprintProcessingException {
-        // Check if employee exists in database
+    public List<String> registerFingerprints(String employeeId, List<MultipartFile> files,
+                                             String segmentationModelId, String recognitionModelId) {
         Optional<Employee> employeeOpt = employeeRepository.findById(employeeId);
         Employee employee = employeeOpt.orElseThrow(() ->
-                new FingerprintProcessingException("Employee with ID " + employeeId + " not found"));
+                new Exception("Employee with ID " + employeeId + " not found"));
 
-        // Create directory for employee fingerprints
+        Optional<FingerprintSegmentationModel> segModelOpt = segmentationModelRepository.findById(segmentationModelId);
+        FingerprintSegmentationModel segmentationModel = segModelOpt.orElseThrow(() ->
+                new Exception("Segmentation model with ID " + segmentationModelId + " not found"));
+
+        Optional<FingerprintRecognitionModel> recModelOpt = recognitionModelRepository.findById(recognitionModelId);
+        FingerprintRecognitionModel recognitionModel = recModelOpt.orElseThrow(() ->
+                new Exception("Recognition model with ID " + recognitionModelId + " not found"));
+
+        String segmentationModelPath = segmentationModel.getPathName();
+        String recognitionModelPath = recognitionModel.getPathName();
+
         String employeeDir = DATASET_BASE_PATH + employeeId;
         Path employeePath = Paths.get(employeeDir);
 
         try {
             Files.createDirectories(employeePath);
         } catch (IOException e) {
-            throw new FingerprintProcessingException("Failed to create directory for employee " + employeeId, e);
+            throw new Exception("Failed to create directory for employee " + employeeId, e);
         }
 
         List<String> savedFilePaths = new ArrayList<>();
         List<FingerprintSample> samples = new ArrayList<>();
 
-        // Save each fingerprint image
         for (int i = 0; i < files.size(); i++) {
             MultipartFile file = files.get(i);
             String originalFilename = file.getOriginalFilename();
             String extension = originalFilename != null ?
                     originalFilename.substring(originalFilename.lastIndexOf(".")) : ".bmp";
 
-            // Format: employeeId_fingerprintNumber.extension
             String filename = employeeId + "_" + (i + 1) + extension;
             Path filePath = Paths.get(employeeDir, filename);
             String relativePath = employeeId + "/" + filename;
@@ -84,50 +93,51 @@ public class FingerprintService {
                 Files.write(filePath, fileBytes);
                 savedFilePaths.add(filePath.toString());
 
-                // Create and save fingerprint sample record
                 FingerprintSample sample = FingerprintSample.builder()
                         .id(UUID.randomUUID().toString())
                         .employee(employee)
                         .image(filePath.toString())
                         .imageData(fileBytes)
-                        .position("finger_" + (i + 1)) // Default position naming
+                        .position("finger_" + (i + 1))
                         .capturedAt(LocalDateTime.now())
-                        .quality(1.0) // Default quality
+                        .quality(1.0)
                         .relativePath(relativePath)
                         .build();
 
                 samples.add(sample);
 
             } catch (IOException e) {
-                throw new FingerprintProcessingException("Failed to save fingerprint image", e);
+                throw new Exception("Failed to save fingerprint image", e);
             }
         }
 
-        // Save all fingerprint samples to database
 //        fingerprintSampleRepository.saveAll(samples);
-
+//
 //        if (employee.getFingerprintDatasetId() == null) {
 //            employee.setFingerprintDatasetId(employeeId);
 //            employeeRepository.save(employee);
 //        }
 
-        // Update the fingerprint model with new data
-            updateFingerprintModel();
+        updateFingerprintModel(segmentationModelPath, recognitionModelPath);
 
         return savedFilePaths;
     }
 
-    /**
-     * Recognizes an employee from a fingerprint image
-     *
-     * @param fingerprintImage The fingerprint image file
-     * @return Recognition result containing employee ID and confidence
-     */
-    /**
-     * Recognize a fingerprint from an uploaded image file
-     */
-    public RecognitionResult recognizeFingerprint(MultipartFile fingerprintImage) throws FingerprintProcessingException {
-        // Save the uploaded fingerprint to a temporary location
+    public RecognitionResult recognizeFingerprint(MultipartFile fingerprintImage,
+                                                  String segmentationModelId,
+                                                  String recognitionModelId) throws Exception {
+        // Find models from specific repositories
+        Optional<FingerprintSegmentationModel> segModelOpt = segmentationModelRepository.findById(segmentationModelId);
+        FingerprintSegmentationModel segmentationModel = segModelOpt.orElseThrow(() ->
+                new Exception("Segmentation model with ID " + segmentationModelId + " not found"));
+
+        Optional<FingerprintRecognitionModel> recModelOpt = recognitionModelRepository.findById(recognitionModelId);
+        FingerprintRecognitionModel recognitionModel = recModelOpt.orElseThrow(() ->
+                new Exception("Recognition model with ID " + recognitionModelId + " not found"));
+
+        String segmentationModelPath = segmentationModel.getPathName();
+        String recognitionModelPath = recognitionModel.getPathName();
+
         String tempFilePath = "temp_" + UUID.randomUUID().toString() + ".bmp";
         Path tempPath = Paths.get(tempFilePath);
 
@@ -136,23 +146,20 @@ public class FingerprintService {
             System.out.println("Fingerprint saved temporarily to: " + tempPath.toAbsolutePath());
         } catch (IOException e) {
             System.err.println("Failed to save temporary fingerprint image: " + e.getMessage());
-            throw new FingerprintProcessingException("Failed to save temporary fingerprint image", e);
+            throw new Exception("Failed to save temporary fingerprint image", e);
         }
 
         try {
-            // Call Python script to recognize the fingerprint
             System.out.println("Calling recognition script for file: " + tempFilePath);
-            executeRecognitionScript(tempFilePath);
+            executeRecognitionScript(tempFilePath, segmentationModelPath, recognitionModelPath);
 
-            // Read the recognition result from the JSON file
             return readRecognitionResultFromFile();
 
         } catch (Exception e) {
             System.err.println("Error in fingerprint recognition process: " + e.getClass().getName() + ": " + e.getMessage());
             e.printStackTrace();
-            throw new FingerprintProcessingException("Failed to recognize fingerprint: " + e.getMessage(), e);
+            throw new Exception("Failed to recognize fingerprint: " + e.getMessage(), e);
         } finally {
-            // Clean up the temporary file
             try {
                 boolean deleted = Files.deleteIfExists(tempPath);
                 System.out.println("Temporary file deleted: " + deleted);
@@ -161,14 +168,16 @@ public class FingerprintService {
             }
         }
     }
-    /**
-     * Updates the fingerprint model with new data
-     */
-    private void updateFingerprintModel() throws IOException, InterruptedException {
+
+    private void updateFingerprintModel(String segmentationModelPath, String recognitionModelPath)
+            throws IOException, InterruptedException {
+
         ProcessBuilder processBuilder = new ProcessBuilder(
                 VENV_PYTHON,
                 PYTHON_SCRIPT_PATH,
-                "--update-model"
+                "--update-model",
+                "--seg-path-name", segmentationModelPath,
+                "--rec-path-name", recognitionModelPath
         );
 
         Process process = processBuilder.start();
@@ -182,18 +191,15 @@ public class FingerprintService {
         }
     }
 
-    /**
-     * Executes the Python script to recognize a fingerprint
-     *
-     * @param imagePath Path to the fingerprint image
-     * @return Raw recognition result as a string
-     */
-    private String executeRecognitionScript(String imagePath) throws IOException, InterruptedException {
+    private String executeRecognitionScript(String imagePath, String segmentationModelPath, String recognitionModelPath)
+            throws IOException, InterruptedException {
         ProcessBuilder processBuilder = new ProcessBuilder(
                 VENV_PYTHON,
                 PYTHON_SCRIPT_PATH,
                 "--recognize",
-                imagePath
+                imagePath,
+                "--seg-path-name", segmentationModelPath,
+                "--rec-path-name", recognitionModelPath
         );
 
         Process process = processBuilder.start();
@@ -209,12 +215,6 @@ public class FingerprintService {
         return output;
     }
 
-    /**
-     * Parses the recognition result from the Python script output
-     *
-     * @param rawResult Raw result from the Python script
-     * @return Structured recognition result
-     */
     private RecognitionResult readRecognitionResultFromFile() throws IOException {
         File resultFile = Paths.get(SCRIPT_DIR, RECOGNITION_RESULT_FILE).toFile();
 
@@ -225,12 +225,10 @@ public class FingerprintService {
         ObjectMapper mapper = new ObjectMapper();
         JsonNode rootNode = mapper.readTree(resultFile);
 
-        // Check if there was an error
         if (rootNode.has("error")) {
             throw new IOException("Recognition error: " + rootNode.get("error").asText());
         }
 
-        // Parse similarity data
         JsonNode similarityNode = rootNode.get("similarity");
 
         String employeeId = null;

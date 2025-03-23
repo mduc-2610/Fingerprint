@@ -1,16 +1,40 @@
 package com.example.fingerprint_backend.util;
 
-import com.example.fingerprint_backend.model.*;
-import com.example.fingerprint_backend.repository.*;
+import com.example.fingerprint_backend.model.access.AccessLog;
+import com.example.fingerprint_backend.model.access.Area;
+import com.example.fingerprint_backend.model.access.Camera;
+import com.example.fingerprint_backend.model.access.CameraImage;
+import com.example.fingerprint_backend.model.auth.Admin;
+import com.example.fingerprint_backend.model.auth.Employee;
+import com.example.fingerprint_backend.model.base.TrainingData;
+import com.example.fingerprint_backend.model.biometrics.fingerprint.*;
+import com.example.fingerprint_backend.repository.access.AccessLogRepository;
+import com.example.fingerprint_backend.repository.access.AreaRepository;
+import com.example.fingerprint_backend.repository.access.CameraImageRepository;
+import com.example.fingerprint_backend.repository.access.CameraRepository;
+import com.example.fingerprint_backend.repository.auth.AdminRepository;
+import com.example.fingerprint_backend.repository.auth.EmployeeRepository;
+import com.example.fingerprint_backend.repository.base.TrainingDataRepository;
+import com.example.fingerprint_backend.repository.base.UserRepository;
+import com.example.fingerprint_backend.repository.biometrics.fingerprint.FingerprintRecognitionModelRepository;
+import com.example.fingerprint_backend.repository.biometrics.fingerprint.FingerprintSampleRepository;
+import com.example.fingerprint_backend.repository.biometrics.fingerprint.FingerprintSegmentationModelRepository;
+import com.example.fingerprint_backend.repository.biometrics.recognition.RecognitionRepository;
 import com.example.fingerprint_backend.service.FingerprintService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.javafaker.Faker;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -29,56 +53,60 @@ public class DataGenerator {
     private final AccessLogRepository accessLogRepository;
     private final RecognitionRepository recognitionRepository;
     private final FingerprintSampleRepository fingerprintSampleRepository;
-    private final FingerprintService fingerprintService;
+    private final CameraImageRepository cameraImageRepository;
+    private final TrainingDataRepository trainingDataRepository;
+    private final FingerprintRecognitionModelRepository fingerprintRecognitionModelRepository;
+    private final FingerprintSegmentationModelRepository fingerprintSegmentationModelRepository;
 
+    private final FingerprintService fingerprintService;
     private final Faker faker = new Faker();
     private final Random random = new Random();
+    private final ObjectMapper objectMapper;
 
-    @PostConstruct
-    public void initializeData() {
-        // Only proceed if no employees exist
+    private static final String reportPath = "fingerprint_training/reports/";
+    //    @PostConstruct
+    public void initializeData() throws IOException {
+
+        recognitionRepository.deleteAll();
+        accessLogRepository.deleteAll();
+        fingerprintSampleRepository.deleteAll();
+        employeeRepository.deleteAll();
+        adminRepository.deleteAll();
+        userRepository.deleteAll();
+        cameraRepository.deleteAll();
+        areaRepository.deleteAll();
+        cameraImageRepository.deleteAll();
+        trainingDataRepository.deleteAll();
+        fingerprintRecognitionModelRepository.deleteAll();
+        fingerprintSegmentationModelRepository.deleteAll();
         if (employeeRepository.count() > 0) {
             return;
         }
 
-        // Create areas
         List<Area> areas = createAreas(5);
 
-        // Create cameras for each area
         List<Camera> cameras = createCameras(areas);
 
-        // Create admins
         List<Admin> admins = createAdmins(3);
 
-        // Create employees with fingerprint dataset
         List<Employee> employees = createEmployeesFromDataset();
 
-        // If no employees were created from dataset, create fake ones
         if (employees.isEmpty()) {
             employees = createFakeEmployees(20);
         }
 
-        // Create employee statistics
 
-        // Create models
-        FingerprintRecognitionModel recognitionModel = createFingerprintRecognitionModel();
-        FingerprintRegionModel regionModel = createFingerprintRegionModel();
+        List<FingerprintRecognitionModel> recognitionModel = loadRecognitionModel("fingerprint_recognition_models.json");
+        List<FingerprintSegmentationModel> segmentationModel = loadSegmentationModel("fingerprint_segmentation_models.json");
 
-        // Create training data
-        TrainingData trainingData = createTrainingData();
+        List<TrainingData> trainingData = loadTrainingDataInfo("training_data_info.json");
 
-        // Create model-training data relations
-        createFRegionTData(regionModel, trainingData);
-        createFRecognitionTData(recognitionModel, trainingData);
+//        createFSegmentationTData(segmentationModel, trainingData);
+//        createFRecognitionTData(recognitionModel, trainingData);
 
-        // Create camera images
-        List<CameraImage> cameraImages = createCameraImages(cameras);
+//        List<CameraImage> cameraImages = createCameraImages(cameras);
 
-        // Create access logs
-        List<AccessLog> accessLogs = createAccessLogs(employees, areas);
-
-        // Create recognitions
-        createRecognitions(employees, cameraImages, accessLogs, recognitionModel, regionModel);
+//        List<AccessLog> accessLogs = createAccessLogs(employees, areas);
 
         System.out.println("Initialized data with " + employees.size() + " employees");
     }
@@ -86,7 +114,6 @@ public class DataGenerator {
     private List<Employee> createEmployeesFromDataset() {
         List<Employee> employees = new ArrayList<>();
 
-        // Get list of dataset folders
         File datasetDir = new File("fingerprint_adapting_test_dataset");
         File[] datasetFolders = datasetDir.listFiles(File::isDirectory);
 
@@ -95,15 +122,16 @@ public class DataGenerator {
             return employees;
         }
 
-        // Create employees with dataset IDs
         for (File folder : datasetFolders) {
             String datasetId = folder.getName();
 
-            // Create employee
             Employee employee = Employee.builder()
                     .id(UUID.randomUUID().toString())
                     .fullName(faker.name().fullName())
                     .phoneNumber(faker.phoneNumber().cellPhone())
+                    .username(faker.name().username())
+                    .email(faker.internet().emailAddress())
+                    .password(faker.internet().password())
                     .build();
 
             employee.setFingerprintSamples(new ArrayList<>());
@@ -187,9 +215,6 @@ public class DataGenerator {
             employees.add(employeeRepository.save(employee));
         }
 
-        // Create fingerprint samples for these employees
-        createFingerprintSamples(employees);
-
         return employees;
     }
 
@@ -203,12 +228,12 @@ public class DataGenerator {
                         .id(UUID.randomUUID().toString())
                         .employee(employee)
                         .image("fingerprint_" + employee.getId() + "_" + i + ".jpg")
-                        .imageData(new byte[1024]) // Dummy data
+                        .imageData(new byte[1024])
                         .position(getRandomFingerPosition())
                         .capturedAt(LocalDateTime.ofInstant(
                                 faker.date().past(30, TimeUnit.DAYS).toInstant(),
                                 ZoneId.systemDefault()))
-                        .quality(random.nextDouble() * 25 + 75) // 75-100 quality range
+                        .quality(random.nextDouble() * 25 + 75)
                         .relativePath("fake/path/" + employee.getId() + "/" + i + ".jpg")
                         .build();
                 samples.add(fingerprintSampleRepository.save(sample));
@@ -217,67 +242,78 @@ public class DataGenerator {
         return samples;
     }
 
-    private FingerprintRecognitionModel createFingerprintRecognitionModel() {
-        FingerprintRecognitionModel model = FingerprintRecognitionModel.builder()
-                .id(UUID.randomUUID().toString())
-                .name("RecognitionModel-v" + (random.nextInt(5) + 1))
-                .accuracy(75.0f + random.nextFloat() * 20.0f)
-                .validationScores(80.0f + random.nextFloat() * 15.0f)
-                .version(random.nextInt(5) + 1)
-                .createdAt(LocalDateTime.ofInstant(
-                        faker.date().past(180, TimeUnit.DAYS).toInstant(),
-                        ZoneId.systemDefault()))
-                .updatedAt(LocalDateTime.ofInstant(
-                        faker.date().past(30, TimeUnit.DAYS).toInstant(),
-                        ZoneId.systemDefault()))
-                .build();
-        return model;
+    private List<FingerprintRecognitionModel> loadRecognitionModel(String fileName) throws IOException {
+        List<FingerprintRecognitionModel> models = new ArrayList<>();
+        String content = new String(Files.readAllBytes(Paths.get(reportPath, fileName)));
+        JSONArray jsonArray = new JSONArray(content);
+
+        for (int i = 0; i < jsonArray.length(); i++) {
+            JSONObject jsonObject = jsonArray.getJSONObject(i);
+
+            FingerprintRecognitionModel model = FingerprintRecognitionModel.builder()
+                    .name(jsonObject.getString("name"))
+                    .pathName(jsonObject.getString("path_name"))
+                    .accuracy((float) jsonObject.getDouble("accuracy"))
+                    .valAccuracy((float) jsonObject.getDouble("valAccuracy"))
+                    .version(jsonObject.getString("version"))
+                    .createdAt(LocalDateTime.parse(jsonObject.getString("createdAt"), DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                    .updatedAt(LocalDateTime.parse(jsonObject.getString("updatedAt"), DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                    .build();
+            models.add(model);
+        }
+
+        fingerprintRecognitionModelRepository.saveAll(models);
+
+        return models;
     }
 
-    private FingerprintRegionModel createFingerprintRegionModel() {
-        FingerprintRegionModel model = FingerprintRegionModel.builder()
-                .id(UUID.randomUUID().toString())
-                .name("RegionModel-v" + (random.nextInt(5) + 1))
-                .accuracy(75.0f + random.nextFloat() * 20.0f)
-                .validationScores(80.0f + random.nextFloat() * 15.0f)
-                .version(random.nextInt(5) + 1)
-                .createdAt(LocalDateTime.ofInstant(
-                        faker.date().past(180, TimeUnit.DAYS).toInstant(),
-                        ZoneId.systemDefault()))
-                .updatedAt(LocalDateTime.ofInstant(
-                        faker.date().past(30, TimeUnit.DAYS).toInstant(),
-                        ZoneId.systemDefault()))
-                .build();
-        return model;
+    private List<FingerprintSegmentationModel> loadSegmentationModel(String fileName) throws IOException {
+        List<FingerprintSegmentationModel> models = new ArrayList<>();
+        String content = new String(Files.readAllBytes(Paths.get(reportPath, fileName)));
+        JSONArray jsonArray = new JSONArray(content);
+
+        for (int i = 0; i < jsonArray.length(); i++) {
+            JSONObject jsonObject = jsonArray.getJSONObject(i);
+
+            FingerprintSegmentationModel model = FingerprintSegmentationModel.builder()
+                    .name(jsonObject.getString("name"))
+                    .pathName(jsonObject.getString("path_name"))
+                    .accuracy((float) jsonObject.getDouble("accuracy"))
+                    .valAccuracy((float) jsonObject.getDouble("valAccuracy"))
+                    .version(jsonObject.getString("version"))
+                    .createdAt(LocalDateTime.parse(jsonObject.getString("createdAt"), DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                    .updatedAt(LocalDateTime.parse(jsonObject.getString("updatedAt"), DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                    .build();
+            models.add(model);
+        }
+        fingerprintSegmentationModelRepository.saveAll(models);
+
+        return models;
     }
 
-    private TrainingData createTrainingData() {
-        TrainingData trainingData = TrainingData.builder()
-                .id(UUID.randomUUID().toString())
-                .name("Training-" + UUID.randomUUID().toString().substring(0, 8))
-                .purpose("Model improvement")
-                .sampleCount(random.nextInt(5000) + 1000)
-                .createdAt(LocalDateTime.ofInstant(
-                        faker.date().past(90, TimeUnit.DAYS).toInstant(),
-                        ZoneId.systemDefault()))
-                .build();
-        return trainingData;
-    }
+    private List<TrainingData> loadTrainingDataInfo(String fileName) throws IOException {
+        List<TrainingData> trainingDataList = new ArrayList<>();
+        String content = new String(Files.readAllBytes(Paths.get(reportPath, fileName)));
+        JSONArray jsonArray = new JSONArray(content);
 
-    private void createFRegionTData(FingerprintRegionModel model, TrainingData trainingData) {
-        FRegionTData data = FRegionTData.builder()
-                .id(UUID.randomUUID().toString())
-                .fingerprintRegionModel(model)
-                .trainingData(trainingData)
-                .build();
-    }
+        for (int i = 0; i < jsonArray.length(); i++) {
+            JSONObject jsonObject = jsonArray.getJSONObject(0);
 
-    private void createFRecognitionTData(FingerprintRecognitionModel model, TrainingData trainingData) {
-        FRecognitionTData data = FRecognitionTData.builder()
-                .id(UUID.randomUUID().toString())
-                .fingerprintRecognitionModel(model)
-                .trainingData(trainingData)
-                .build();
+            TrainingData trainingData = TrainingData.builder()
+                    .name(jsonObject.getString("name"))
+                    .purpose(jsonObject.getString("purpose"))
+                    .sampleCount(jsonObject.getInt("sampleCount"))
+                    .createdAt(LocalDateTime.parse(jsonObject.getString("createdAt"), DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                    .updatedAt(LocalDateTime.parse(jsonObject.getString("updatedAt"), DateTimeFormatter.ISO_LOCAL_DATE_TIME))
+                    .source(jsonObject.getString("source"))
+                    .resolution(jsonObject.getString("resolution"))
+                    .format(jsonObject.getString("format"))
+                    .build();
+            trainingDataList.add(trainingData);
+        }
+        trainingDataRepository.saveAll(trainingDataList);
+
+        return trainingDataList;
     }
 
     private List<CameraImage> createCameraImages(List<Camera> cameras) {
@@ -289,8 +325,8 @@ public class DataGenerator {
                         .id(UUID.randomUUID().toString())
                         .camera(camera)
                         .image("camera_capture_" + camera.getId() + "_" + i + ".jpg")
-                        .imageData(new byte[4096]) // Dummy data
-                        .captured_at(LocalDateTime.ofInstant(
+                        .imageData(new byte[4096])
+                        .capturedAt(LocalDateTime.ofInstant(
                                 faker.date().past(7, TimeUnit.DAYS).toInstant(),
                                 ZoneId.systemDefault()))
                         .build();
@@ -314,33 +350,12 @@ public class DataGenerator {
                         .timestamp(LocalDateTime.ofInstant(
                                 faker.date().past(14, TimeUnit.DAYS).toInstant(),
                                 ZoneId.systemDefault()))
-                        .isAuthorized(random.nextFloat() > 0.1f) // 90% authorized
+                        .isAuthorized(random.nextFloat() > 0.1f)
                         .accessType(accessTypes[random.nextInt(accessTypes.length)])
                         .build();
                 logs.add(accessLogRepository.save(log));
             }
         }
         return logs;
-    }
-
-    private void createRecognitions(List<Employee> employees, List<CameraImage> images,
-                                    List<AccessLog> logs, FingerprintRecognitionModel recognitionModel,
-                                    FingerprintRegionModel regionModel) {
-        for (AccessLog log : logs) {
-            CameraImage image = images.get(random.nextInt(images.size()));
-
-            Recognition recognition = Recognition.builder()
-                    .id(UUID.randomUUID().toString())
-                    .cameraImage(image)
-                    .fingerprintRecognitionModel(recognitionModel)
-                    .fingerprintRegionModel(regionModel)
-                    .accessLog(log)
-                    .employee(log.getEmployee())
-                    .timestamp(log.getTimestamp())
-                    .confidence(70.0f + random.nextFloat() * 29.0f)
-                    .build();
-
-            recognitionRepository.save(recognition);
-        }
     }
 }
