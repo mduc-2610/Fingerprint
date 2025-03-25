@@ -188,6 +188,7 @@ def evaluate_model(model, x_val, label_val):
     plt.show()
 evaluate_model(model, x_val, label_val)
 
+# --- Modul training ---
 # Modify and supplement the code according to the following requirements:
 
 # Add training for a fingerprint region detection model based on the existing training process (if not already included in the code).
@@ -298,3 +299,15 @@ evaluate_model(model, x_val, label_val)
 # # implement choose model to train 
 # about fingerprint_recognition.py you just need to 
 # specify --seg-path-name and --reg-path-name to make it train by the model you want
+
+
+# --- Modul employee statistics ---
+# implement html js file i provide you above follow this instruction
+# based on this two endpoints
+# implement employee statistics modul
+# click on employee in list of employee statistics
+# return list of accesslog of that employees
+# with default filter
+# then can filter by accessType and area from that employee
+
+# implement html js i provide you above follow this instruction based on this two endpoints implement employee statistics modul with a new tab click on employee in list of employee statistics return list of accesslog of that employees with default filter then can filter by accessType and area from that employee

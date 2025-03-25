@@ -107,7 +107,6 @@ public class FingerprintController {
                         .body(Map.of("error", "Fingerprint recognition failed"));
             }
 
-            // Create access log regardless of match result
             AccessLog accessLog = fingerprintService.createAccessLog(
                     result.getEmployeeId(),
                     area,
@@ -126,7 +125,7 @@ public class FingerprintController {
                             "employeeId", result.getEmployeeId(),
                             "confidence", result.getConfidence(),
                             "accessLog", accessLog,
-                            "isAuthorized", accessLog.isAuthorized(),
+                            "authorized", accessLog.isAuthorized(),
                             "message", "Employee not found in the database but fingerprint matched"
                     ));
                 }
@@ -137,14 +136,14 @@ public class FingerprintController {
                         "confidence", result.getConfidence(),
                         "employee", employee.get(),
                         "accessLog", accessLog,
-                        "isAuthorized", accessLog.isAuthorized()
+                        "authorized", accessLog.isAuthorized()
                 ));
             } else {
                 return ResponseEntity.ok(Map.of(
                         "matched", false,
                         "confidence", result.getConfidence(),
                         "accessLog", accessLog,
-                        "isAuthorized", false
+                        "authorized", false
                 ));
             }
         } catch (Exception e) {

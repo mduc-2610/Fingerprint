@@ -37,7 +37,7 @@ public class Recognition {
     @JoinColumn(name = "fingerprint_region_model_id")
     private FingerprintSegmentationModel fingerprintSegmentationModel;
 
-    @ManyToOne
+    @OneToOne
     @JoinColumn(name = "access_log_id")
     private AccessLog accessLog;
 

@@ -64,3 +64,8 @@
     font-size: 0.75rem;
     color: #6c757d;
 }
+
+.modal-dialog {
+    max-width: 90vw; 
+    width: 90%;
+}

@@ -1,8 +1,204 @@
 // Global variables
 let selectedEmployee = null;
 let selectedArea = null;
+let selectedStatisticsEmployee = null;
 const BASE_URL = 'http://localhost:8080';
 
+
+function loadAreasForFilter() {
+    fetch(`${BASE_URL}/api/area`)
+        .then(response => response.json())
+        .then(data => {
+            const areaFilter = document.getElementById('areaFilter');
+            areaFilter.innerHTML = '<option value="">All Areas</option>';
+            
+            data.forEach(area => {
+                const option = document.createElement('option');
+                option.value = area.id;
+                option.textContent = area.name;
+                areaFilter.appendChild(option);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading areas:', error);
+        });
+}
+
+function setupEmployeeStatistics() {
+    const loadStatisticsBtn = document.getElementById('loadStatisticsBtn');
+    const startDateInput = document.getElementById('statisticsStartDate');
+    const endDateInput = document.getElementById('statisticsEndDate');
+    const accessTypeFilter = document.getElementById('accessTypeFilter');
+    const areaFilter = document.getElementById('areaFilter');
+
+    // Set default date range to last 30 days
+    const defaultEndDate = new Date();
+    const defaultStartDate = new Date();
+    defaultStartDate.setDate(defaultStartDate.getDate() - 30);
+    
+    // Format dates to datetime-local input format
+    startDateInput.value = formatDateForInput(defaultStartDate);
+    endDateInput.value = formatDateForInput(defaultEndDate);
+
+    loadStatisticsBtn.addEventListener('click', loadEmployeeStatistics);
+
+    // Add event listeners for access logs filtering
+    accessTypeFilter.addEventListener('change', filterEmployeeAccessLogs);
+    areaFilter.addEventListener('change', filterEmployeeAccessLogs);
+}
+
+// Helper function to format date for datetime-local input
+function formatDateForInput(date) {
+    const pad = (num) => num.toString().padStart(2, '0');
+    
+    const year = date.getFullYear();
+    const month = pad(date.getMonth() + 1);
+    const day = pad(date.getDate());
+    const hours = pad(date.getHours());
+    const minutes = pad(date.getMinutes());
+    
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
+function loadEmployeeStatistics() {
+    const startDateInput = document.getElementById('statisticsStartDate');
+    const endDateInput = document.getElementById('statisticsEndDate');
+    const tableBody = document.getElementById('employeeStatisticsTableBody');
+
+    const startDate = startDateInput.value;
+    const endDate = endDateInput.value;
+
+    showLoading();
+
+    // Fetch employee statistics
+    fetch(`${BASE_URL}/api/employee/statistics?startDate=${startDate}&endDate=${endDate}`)
+        .then(response => response.json())
+        .then(data => {
+            tableBody.innerHTML = '';
+            
+            data.forEach(stat => {
+                const row = document.createElement('tr');
+                row.setAttribute('data-employee-id', stat.employeeId);
+                row.addEventListener('click', () => loadEmployeeAccessLogs(stat.employeeId));
+
+                const photoCell = document.createElement('td');
+                const photoImg = document.createElement('img');
+                photoImg.src = stat.photoUrl || 'https://th.bing.com/th/id/OIP.hlxam_68Up5ge-CcOHvhLQHaHa?w=512&h=512&rs=1&pid=ImgDetMain';
+                photoImg.alt = 'Employee Photo';
+                photoImg.style.width = '50px';
+                photoImg.style.height = '50px';
+                photoImg.className = 'rounded-circle';
+                photoCell.appendChild(photoImg);
+
+                const idCell = document.createElement('td');
+                idCell.textContent = stat.employeeId;
+
+                const nameCell = document.createElement('td');
+                nameCell.textContent = stat.fullName;
+
+                const totalAccessCell = document.createElement('td');
+                totalAccessCell.textContent = stat.totalAccesses;
+
+                const authorizedAccessCell = document.createElement('td');
+                authorizedAccessCell.textContent = stat.authorizedAccess;
+
+                const unauthorizedAccessCell = document.createElement('td');
+                unauthorizedAccessCell.textContent = stat.unauthorizedAccess;
+
+                row.appendChild(photoCell);
+                row.appendChild(idCell);
+                row.appendChild(nameCell);
+                row.appendChild(totalAccessCell);
+                row.appendChild(authorizedAccessCell);
+                row.appendChild(unauthorizedAccessCell);
+
+                tableBody.appendChild(row);
+            });
+
+            hideLoading();
+        })
+        .catch(error => {
+            console.error('Error loading employee statistics:', error);
+            hideLoading();
+        });
+}
+
+function loadEmployeeAccessLogs(employeeId) {
+    const startDateInput = document.getElementById('statisticsStartDate');
+    const endDateInput = document.getElementById('statisticsEndDate');
+    const accessLogsCard = document.getElementById('employeeAccessLogsCard');
+    const tableBody = document.getElementById('employeeAccessLogsTableBody');
+    const accessTypeFilter = document.getElementById('accessTypeFilter');
+    const areaFilter = document.getElementById('areaFilter');
+
+    // Reset filters
+    accessTypeFilter.value = '';
+    areaFilter.value = '';
+
+    const startDate = startDateInput.value;
+    const endDate = endDateInput.value;
+
+    showLoading();
+
+    // Fetch access logs for the selected employee
+    fetch(`${BASE_URL}/api/employee/${employeeId}/access-logs?startDate=${startDate}&endDate=${endDate}`)
+        .then(response => response.json())
+        .then(data => {
+            tableBody.innerHTML = '';
+            
+            data.forEach(log => {
+                const row = document.createElement('tr');
+                row.classList.add(log.authorized ? 'table-success' : 'table-danger');
+
+                const timestampCell = document.createElement('td');
+                timestampCell.textContent = new Date(log.timestamp).toLocaleString();
+
+                const accessTypeCell = document.createElement('td');
+                accessTypeCell.textContent = log.accessType;
+
+                const areaCell = document.createElement('td');
+                areaCell.textContent = log.area?.name || 'General Access';
+
+                
+                row.appendChild(timestampCell);
+                row.appendChild(accessTypeCell);
+                row.appendChild(areaCell);
+                // const authorizationCell = document.createElement('td');
+                // authorizationCell.textContent = log.authorized ? 'Authorized' : 'Unauthorized';
+                // row.appendChild(authorizationCell);
+
+                tableBody.appendChild(row);
+            });
+
+            accessLogsCard.style.display = 'block';
+            hideLoading();
+        })
+        .catch(error => {
+            console.error('Error loading employee access logs:', error);
+            hideLoading();
+        });
+}
+
+function filterEmployeeAccessLogs() {
+    const tableBody = document.getElementById('employeeAccessLogsTableBody');
+    const accessTypeFilterElement = document.getElementById('accessTypeFilter');
+    const areaFilterElement = document.getElementById('areaFilter');
+    const areaFilter = areaFilterElement.options[areaFilterElement.selectedIndex].textContent.trim().toLowerCase();
+    const accessTypeFilter = accessTypeFilterElement.options[accessTypeFilterElement.selectedIndex].textContent.trim().toLowerCase();
+    
+    const rows = tableBody.querySelectorAll('tr');
+    rows.forEach((row, index) => {
+        const accessType = row.querySelector('td:nth-child(2)').textContent.trim().toLowerCase();
+        const area = row.querySelector('td:nth-child(3)').textContent.trim().toLowerCase();
+        // console.log("", accessType, accessTypeFilter, index);
+        // console.log("Row content: ", area, " - Filter: ", areaFilter, index);    
+    
+        const accessTypeMatch = accessTypeFilter === 'all types' || !accessTypeFilter || accessType === accessTypeFilter;
+        const areaMatch = areaFilter === 'all areas' || !areaFilter || area === areaFilter;
+
+        row.style.display = (accessTypeMatch && areaMatch) ? '' : 'none';
+    });
+}
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize Bootstrap tabs
     const tabElements = document.querySelectorAll('button[data-bs-toggle="tab"]');
@@ -25,14 +221,18 @@ document.addEventListener('DOMContentLoaded', function() {
     // Load area data
     loadAreas();
     
+    loadAreasForFilter();
     // Setup search functionality
-    setupEmployeeSearch();
     
     // Setup form submissions
     setupRegisterForm();
     setupRecognizeForm();
+    setupEmployeeSearch();
     
     // Setup file preview
+
+    setupEmployeeStatistics();
+
     setupFilePreview();
 });
 
@@ -158,7 +358,7 @@ function populateEmployeeTable(employees) {
         
         const photoCell = document.createElement('td');
         const photoImg = document.createElement('img');
-        photoImg.src = employee.photoUrl || '/img/default-profile.png';
+        photoImg.src = employee.photoUrl || 'https://th.bing.com/th/id/OIP.hlxam_68Up5ge-CcOHvhLQHaHa?w=512&h=512&rs=1&pid=ImgDetMain';
         photoImg.alt = 'Employee Photo';
         photoImg.style.width = '50px';
         photoImg.style.height = '50px';
@@ -208,7 +408,7 @@ function selectEmployee(employee) {
     const infoCard = document.getElementById('employeeInfoCard');
     infoCard.classList.remove('d-none');
     
-    document.getElementById('selectedEmployeePhoto').src = employee.photoUrl || '/img/default-profile.png';
+    document.getElementById('selectedEmployeePhoto').src = employee.photoUrl || 'https://th.bing.com/th/id/OIP.hlxam_68Up5ge-CcOHvhLQHaHa?w=512&h=512&rs=1&pid=ImgDetMain';
     document.getElementById('selectedEmployeeFullName').textContent = `${employee.fullName}`;
     document.getElementById('selectedEmployeeId').textContent = employee.id;
     document.getElementById('selectedEmployeePhone').textContent = employee.phoneNumber || '-';
@@ -335,6 +535,21 @@ function setupRegisterForm() {
 }
 
 function setupRecognizeForm() {
+    const accessTypes = ["ENTRY", "EXIT"];
+    const accessTypeSelect = document.getElementById("accessTypeSelect");
+
+    const defaultOption = document.createElement("option");
+    defaultOption.value = "ENTRY";
+    defaultOption.textContent = "ENTRY";
+    accessTypeSelect.appendChild(defaultOption);
+
+    accessTypes.forEach(type => {
+        const option = document.createElement("option");
+        option.value = type;
+        option.textContent = type;
+        accessTypeSelect.appendChild(option);
+    });
+    
     document.getElementById('recognizeForm').addEventListener('submit', function(event) {
         event.preventDefault();
         
@@ -348,7 +563,8 @@ function setupRecognizeForm() {
         const segmentationModelId = document.getElementById('segmentationModelRecognize').value;
         const recognitionModelId = document.getElementById('recognitionModel').value;
         const areaId = document.getElementById('areaSelect').value;
-        
+        const accessType = accessTypeSelect.value;
+
         showLoading();
         
         // Create form data
@@ -356,6 +572,8 @@ function setupRecognizeForm() {
         formData.append('file', fingerprintFile);
         formData.append('segmentationModelId', segmentationModelId);
         formData.append('recognitionModelId', recognitionModelId);
+        formData.append('accessType', accessType);
+        // formData.append('accessType', accessTypeSelect.value);
         
         // Add area ID if selected
         if (areaId) {
@@ -428,8 +646,8 @@ function displayRecognitionResult(result) {
     
     if (result.matched) {
         resultContainer.innerHTML = `
-            <div class="alert ${result.isAuthorized ? 'alert-success' : 'alert-warning'}">
-                <h5>${result.isAuthorized ? 'Access Granted' : 'Access Denied'}</h5>
+            <div class="alert ${result.authorized ? 'alert-success' : 'alert-warning'}">
+                <h5>${result.authorized ? 'Access Granted' : 'Access Denied'}</h5>
                 <p>Fingerprint matched with confidence: ${(result.confidence * 100).toFixed(2)}%</p>
             </div>
             
@@ -440,7 +658,7 @@ function displayRecognitionResult(result) {
                 <div class="card-body">
                     <div class="row">
                         <div class="col-md-3 text-center">
-                            <img src="${result.employee?.photoUrl || '/img/default-profile.png'}" alt="Employee Photo" 
+                            <img src="${result.employee?.photoUrl || 'https://th.bing.com/th/id/OIP.hlxam_68Up5ge-CcOHvhLQHaHa?w=512&h=512&rs=1&pid=ImgDetMain'}" alt="Employee Photo" 
                                 class="img-fluid mb-2" style="max-height: 100px;">
                         </div>
                         <div class="col-md-9">
@@ -461,7 +679,7 @@ function displayRecognitionResult(result) {
                     <p><strong>Timestamp:</strong> ${new Date(result.accessLog.timestamp).toLocaleString()}</p>
                     <p><strong>Area:</strong> ${result.accessLog.area?.name || 'General Access'}</p>
                     <p><strong>Access Type:</strong> ${result.accessLog.accessType}</p>
-                    <p><strong>Authorization:</strong> ${result.isAuthorized ? 'Authorized' : 'Not Authorized'}</p>
+                    <p><strong>Authorization:</strong> ${result.authorized ? 'Authorized' : 'Not Authorized'}</p>
                 </div>
             </div>
         `;

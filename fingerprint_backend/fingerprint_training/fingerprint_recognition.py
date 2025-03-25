@@ -205,7 +205,7 @@ def load_embeddings_db():
         print(f"Embeddings database not found at {db_path}", file=sys.stderr)
         return None
 
-def recognize_employee(image_path, embedding_model, segmentation_model, recognition_shape, segmentation_shape, threshold=0.7):
+def recognize_employee(image_path, embedding_model, segmentation_model, recognition_shape, segmentation_shape, threshold=1.0):
     """Recognize employee from fingerprint"""
     try:
         # Load embeddings database

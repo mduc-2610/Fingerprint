@@ -2,6 +2,7 @@ package com.example.fingerprint_backend.model.access;
 
 import com.example.fingerprint_backend.model.auth.Employee;
 import com.example.fingerprint_backend.model.biometrics.recognition.Recognition;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -26,13 +27,15 @@ public class AccessLog {
     private Area area;
 
     @ManyToOne
+    @JsonIgnore
     @JoinColumn(name = "employee_id")
     private Employee employee;
 
     private LocalDateTime timestamp;
-    private boolean isAuthorized;
+    private boolean authorized;
     private String accessType;
 
-    @OneToMany(mappedBy = "accessLog")
-    private List<Recognition> recognitions;
+    @JsonIgnore
+    @OneToOne(mappedBy = "accessLog")
+    private Recognition recognition;
 }

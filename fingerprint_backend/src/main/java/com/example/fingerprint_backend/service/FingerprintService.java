@@ -269,8 +269,8 @@ public class FingerprintService {
                 Employee employee = employeeOpt.get();
                 accessLog.setEmployee(employee);
 
-                boolean isAuthorized = determineAuthorization(employee, area);
-                accessLog.setAuthorized(isAuthorized);
+                boolean authorized = determineAuthorization(employee, area);
+                accessLog.setAuthorized(authorized);
             } else {
                 // Employee ID matched but not found in database
                 accessLog.setAuthorized(false);
