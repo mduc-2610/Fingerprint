@@ -40,8 +40,8 @@ public class AccessLogController {
         return accessLogRepository.findByAreaId(areaId);
     }
 
-    @GetMapping("/timeframe")
-    public List<AccessLog> getAccessLogsByTimeframe(
+    @GetMapping("/timestamp")
+    public List<AccessLog> getAccessLogsByTimeStamp(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
         return accessLogRepository.findByTimestampBetween(start, end);

@@ -13,4 +13,7 @@ public interface ModelRepository<T, ID> extends JpaRepository<T, ID> {
     List<T> findByVersion(String version);
     List<T> findByAccuracyGreaterThanEqual(float minAccuracy);
     Optional<T> findTopByOrderByCreatedAtDesc();
+    default Optional<T> findLatestModel() {
+        return findTopByOrderByCreatedAtDesc();
+    }
 }

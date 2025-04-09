@@ -58,12 +58,10 @@ public class FingerprintService {
             String segmentationModelId,
             String recognitionModelId) throws Exception {
 
-        // Validate employee exists
         Optional<Employee> employeeOpt = employeeRepository.findById(employeeId);
         Employee employee = employeeOpt.orElseThrow(() ->
                 new Exception("Employee with ID " + employeeId + " not found"));
 
-        // Validate models exist
         Optional<FingerprintSegmentationModel> segModelOpt = segmentationModelRepository.findById(segmentationModelId);
         FingerprintSegmentationModel segmentationModel = segModelOpt.orElseThrow(() ->
                 new Exception("Segmentation model with ID " + segmentationModelId + " not found"));
@@ -84,7 +82,6 @@ public class FingerprintService {
             throw new Exception("Failed to create directory for employee " + employeeId, e);
         }
 
-        // Process the fingerprint image
         String originalFilename = file.getOriginalFilename();
         String extension = originalFilename != null ?
                 originalFilename.substring(originalFilename.lastIndexOf(".")) : ".bmp";
@@ -107,7 +104,6 @@ public class FingerprintService {
 
             FingerprintSample savedSample = fingerprintSampleRepository.save(sample);
 
-            // Update the fingerprint model
             updateFingerprintModel(segmentationModelPath, recognitionModelPath);
 
             return savedSample;
@@ -126,12 +122,10 @@ public class FingerprintService {
             String segmentationModelId,
             String recognitionModelId) throws Exception {
 
-        // Validate employee exists
         Optional<Employee> employeeOpt = employeeRepository.findById(employeeId);
         Employee employee = employeeOpt.orElseThrow(() ->
                 new Exception("Employee with ID " + employeeId + " not found"));
 
-        // Validate models exist
         Optional<FingerprintSegmentationModel> segModelOpt = segmentationModelRepository.findById(segmentationModelId);
         FingerprintSegmentationModel segmentationModel = segModelOpt.orElseThrow(() ->
                 new Exception("Segmentation model with ID " + segmentationModelId + " not found"));
@@ -154,7 +148,6 @@ public class FingerprintService {
 
         List<FingerprintSample> samples = new ArrayList<>();
 
-        // Process each fingerprint image
         for (int i = 0; i < files.size(); i++) {
             MultipartFile file = files.get(i);
             String position = positions.get(i);
@@ -189,7 +182,6 @@ public class FingerprintService {
 
         employeeRepository.save(employee);
 
-        // Update the fingerprint model
         updateFingerprintModel(segmentationModelPath, recognitionModelPath);
 
         return samples;
@@ -254,14 +246,12 @@ public class FingerprintService {
 
         LocalDateTime now = LocalDateTime.now();
 
-        // Create access log
         AccessLog accessLog = AccessLog.builder()
                 .area(area)
                 .timestamp(now)
                 .accessType(accessType)
                 .build();
 
-        // Handle employee if matched
         if (isMatched && employeeId != null) {
             Optional<Employee> employeeOpt = employeeRepository.findById(employeeId);
 
@@ -272,18 +262,14 @@ public class FingerprintService {
                 boolean authorized = determineAuthorization(employee, area);
                 accessLog.setAuthorized(authorized);
             } else {
-                // Employee ID matched but not found in database
                 accessLog.setAuthorized(false);
             }
         } else {
-            // No match or null employeeId
             accessLog.setAuthorized(false);
         }
 
-        // Save the access log
         AccessLog savedAccessLog = accessLogRepository.save(accessLog);
 
-        // Create and link recognition record
         try {
             FingerprintSegmentationModel segmentationModel = segmentationModelRepository.findById(segmentationModelId)
                     .orElseThrow(() -> new Exception("Segmentation model not found"));
@@ -291,7 +277,6 @@ public class FingerprintService {
             FingerprintRecognitionModel recognitionModel = recognitionModelRepository.findById(recognitionModelId)
                     .orElseThrow(() -> new Exception("Recognition model not found"));
 
-            // Find employee if exists
             Employee employee = null;
             if (employeeId != null) {
                 employee = employeeRepository.findById(employeeId).orElse(null);
@@ -309,31 +294,21 @@ public class FingerprintService {
             recognitionRepository.save(recognition);
 
         } catch (Exception e) {
-            // Log but don't fail the transaction
             System.err.println("Failed to create recognition record: " + e.getMessage());
         }
 
         return savedAccessLog;
     }
 
-    /**
-     * Determine if an employee is authorized to access an area
-     * This can be expanded with more complex authorization logic
-     */
     private boolean determineAuthorization(Employee employee, Area area) {
-        // If no area specified, assume general access is allowed
         if (area == null) {
             return true;
         }
 
-        // Check if employee is active
         if (employee == null) {
             return false;
         }
 
-        // TODO: Add more complex authorization logic here
-        // Example: Check employee security clearance against area security level
-        // This is a simplified placeholder implementation
         return true;
     }
 
