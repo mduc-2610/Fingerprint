@@ -7,6 +7,10 @@ RUN mvn package -DskipTests
 
 FROM openjdk:17-slim
 WORKDIR /app
+
+# Install curl for healthcheck support
+RUN apt-get update && apt-get install -y curl
+
 COPY --from=build /app/target/*.jar app.jar
 
 EXPOSE 8080

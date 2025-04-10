@@ -7,13 +7,21 @@ services:
     container_name: discovery-server
     ports:
       - "8761:8761"
-    healthcheck:
+    # healthcheck:
       # Try a simpler health check - just check if port 8761 is listening
-      test: ["CMD", "curl", "-f", "http://localhost:8761"] 
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s  # Give it more time to start
+      # test: ["CMD", "curl", "-f", "http://localhost:8761"] 
+      # interval: 30s
+      # timeout: 10s
+      # retries: 5
+      # start_period: 40s  # Give it more time to start
+
+    healthcheck:
+        test: ["CMD-SHELL", "curl -f http://localhost:8761/actuator/health || exit 1"]
+        interval: 30s
+        timeout: 10s
+        retries: 5
+        start_period: 60s
+
 
   # API Gateway
   api-gateway:
@@ -23,7 +31,7 @@ services:
       - "8080:8080"
     environment:
       - SPRING_PROFILES_ACTIVE=docker
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - eureka.client.service-url.defaultZone=http://discovery-server:8761/eureka/
     depends_on:
       discovery-server:
         condition: service_healthy
@@ -57,7 +65,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/access_control_db
       - SPRING_DATASOURCE_USERNAME=root
       - SPRING_DATASOURCE_PASSWORD=Duc.2003
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - eureka.client.service-url.defaultZone=http://discovery-server:8761/eureka/
     depends_on:
       discovery-server:
         condition: service_healthy
@@ -75,7 +83,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/biometrics_db
       - SPRING_DATASOURCE_USERNAME=root
       - SPRING_DATASOURCE_PASSWORD=Duc.2003
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - eureka.client.service-url.defaultZone=http://discovery-server:8761/eureka/
     depends_on:
       discovery-server:
         condition: service_healthy
@@ -106,7 +114,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/model_management_db
       - SPRING_DATASOURCE_USERNAME=root
       - SPRING_DATASOURCE_PASSWORD=Duc.2003
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - eureka.client.service-url.defaultZone=http://discovery-server:8761/eureka/
     depends_on:
       discovery-server:
         condition: service_healthy
@@ -124,7 +132,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/training_data_db
       - SPRING_DATASOURCE_USERNAME=root
       - SPRING_DATASOURCE_PASSWORD=Duc.2003
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - eureka.client.service-url.defaultZone=http://discovery-server:8761/eureka/
     depends_on:
       discovery-server:
         condition: service_healthy
@@ -142,7 +150,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/user_management_db
       - SPRING_DATASOURCE_USERNAME=root
       - SPRING_DATASOURCE_PASSWORD=Duc.2003
-      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://discovery-server:8761/eureka/
+      - eureka.client.service-url.defaultZone=http://discovery-server:8761/eureka/
     depends_on:
       discovery-server:
         condition: service_healthy
