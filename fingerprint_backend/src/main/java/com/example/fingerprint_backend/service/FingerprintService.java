@@ -38,10 +38,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class FingerprintService {
     private static final String VENV_PYTHON = "fingerprint_training/env/Scripts/python.exe"; // Windows
-    private static final String RECOGNITION_RESULT_FILE = "recognition_result.json";
     private static final String SCRIPT_DIR = "fingerprint_training/reports";
     private static final String PYTHON_SCRIPT_PATH = "fingerprint_training/fingerprint_recognition.py";
     private static final String DATASET_BASE_PATH = "fingerprint_training/fingerprint_adapting_dataset/";
+    private static final String RECOGNITION_RESULT_FILE = "recognition_result.json";
 
     private final EmployeeRepository employeeRepository;
     private final FingerprintSampleRepository fingerprintSampleRepository;

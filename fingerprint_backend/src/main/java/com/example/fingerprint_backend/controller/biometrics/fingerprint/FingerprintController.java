@@ -79,73 +79,73 @@ import java.util.Map;
     ////        }
     ////    }
     //
-    //    @PostMapping("/recognize")
-    //    public ResponseEntity<?> recognizeFingerprint(
-    //            @RequestParam("file") MultipartFile file,
-    //            @RequestParam("segmentationModelId") String segmentationModelId,
-    //            @RequestParam("recognitionModelId") String recognitionModelId,
-    //            @RequestParam(value = "areaId", required = false) String areaId,
-    //            @RequestParam(value = "accessType", required = false, defaultValue = "ENTRY") String accessType) {
-    //        try {
-    //            Area area = null;
-    //            if (areaId != null && !areaId.isEmpty()) {
-    //                Optional<Area> areaOpt = areaRepository.findById(areaId);
-    //                if (areaOpt.isPresent()) {
-    //                    area = areaOpt.get();
-    //                }
-    //            }
-    //
-    //            RecognitionResult result = fingerprintService.recognizeFingerprint(file, segmentationModelId, recognitionModelId);
-    //
-    //            if (result == null) {
-    //                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-    //                        .body(Map.of("error", "Fingerprint recognition failed"));
-    //            }
-    //
-    //            AccessLog accessLog = fingerprintService.createAccessLog(
-    //                    result.getEmployeeId(),
-    //                    area,
-    //                    accessType,
-    //                    result.isMatch(),
-    //                    result.getConfidence(),
-    //                    segmentationModelId,
-    //                    recognitionModelId);
-    //
-    //            if (result.isMatch()) {
-    //                Optional<Employee> employee = employeeRepository.findById(result.getEmployeeId());
-    //
-    //                if (employee.isEmpty()) {
-    //                    return ResponseEntity.ok(Map.of(
-    //                            "matched", true,
-    //                            "employeeId", result.getEmployeeId(),
-    //                            "confidence", result.getConfidence(),
-    //                            "accessLog", accessLog,
-    //                            "authorized", accessLog.isAuthorized(),
-    //                            "message", "Employee not found in the database but fingerprint matched"
-    //                    ));
-    //                }
-    //
-    //                return ResponseEntity.ok(Map.of(
-    //                        "matched", true,
-    //                        "employeeId", result.getEmployeeId(),
-    //                        "confidence", result.getConfidence(),
-    //                        "employee", employee.get(),
-    //                        "accessLog", accessLog,
-    //                        "authorized", accessLog.isAuthorized()
-    //                ));
-    //            } else {
-    //                return ResponseEntity.ok(Map.of(
-    //                        "matched", false,
-    //                        "confidence", result.getConfidence(),
-    //                        "accessLog", accessLog,
-    //                        "authorized", false
-    //                ));
-    //            }
-    //        } catch (Exception e) {
-    //            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-    //                    .body(Map.of("error", "An unexpected error occurred: " + e.getMessage()));
-    //        }
-    //    }
+//        @PostMapping("/recognize")
+//        public ResponseEntity<?> recognizeFingerprint(
+//                @RequestParam("file") MultipartFile file,
+//                @RequestParam("segmentationModelId") String segmentationModelId,
+//                @RequestParam("recognitionModelId") String recognitionModelId,
+//                @RequestParam(value = "areaId", required = false) String areaId,
+//                @RequestParam(value = "accessType", required = false, defaultValue = "ENTRY") String accessType) {
+//            try {
+//                Area area = null;
+//                if (areaId != null && !areaId.isEmpty()) {
+//                    Optional<Area> areaOpt = areaRepository.findById(areaId);
+//                    if (areaOpt.isPresent()) {
+//                        area = areaOpt.get();
+//                    }
+//                }
+//
+//                RecognitionResult result = fingerprintService.recognizeFingerprint(file, segmentationModelId, recognitionModelId);
+//
+//                if (result == null) {
+//                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+//                            .body(Map.of("error", "Fingerprint recognition failed"));
+//                }
+//
+//                AccessLog accessLog = fingerprintService.createAccessLog(
+//                        result.getEmployeeId(),
+//                        area,
+//                        accessType,
+//                        result.isMatch(),
+//                        result.getConfidence(),
+//                        segmentationModelId,
+//                        recognitionModelId);
+//
+//                if (result.isMatch()) {
+//                    Optional<Employee> employee = employeeRepository.findById(result.getEmployeeId());
+//
+//                    if (employee.isEmpty()) {
+//                        return ResponseEntity.ok(Map.of(
+//                                "matched", true,
+//                                "employeeId", result.getEmployeeId(),
+//                                "confidence", result.getConfidence(),
+//                                "accessLog", accessLog,
+//                                "authorized", accessLog.isAuthorized(),
+//                                "message", "Employee not found in the database but fingerprint matched"
+//                        ));
+//                    }
+//
+//                    return ResponseEntity.ok(Map.of(
+//                            "matched", true,
+//                            "employeeId", result.getEmployeeId(),
+//                            "confidence", result.getConfidence(),
+//                            "employee", employee.get(),
+//                            "accessLog", accessLog,
+//                            "authorized", accessLog.isAuthorized()
+//                    ));
+//                } else {
+//                    return ResponseEntity.ok(Map.of(
+//                            "matched", false,
+//                            "confidence", result.getConfidence(),
+//                            "accessLog", accessLog,
+//                            "authorized", false
+//                    ));
+//                }
+//            } catch (Exception e) {
+//                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+//                        .body(Map.of("error", "An unexpected error occurred: " + e.getMessage()));
+//            }
+//        }
 
     //    private final FingerprintFacade fingerprintFacade;
     //    private final EmployeeRepository employeeRepository;
@@ -193,68 +193,68 @@ import java.util.Map;
     //        }
     //    }
     //
-    //    @PostMapping("/recognize")
-    //    public ResponseEntity<?> recognizeFingerprint(
-    //            @RequestParam("file") MultipartFile file,
-    //            @RequestParam(value = "segmentationModelId", required = false) String segmentationModelId,
-    //            @RequestParam(value = "recognitionModelId", required = false) String recognitionModelId,
-    //            @RequestParam(value = "areaId", required = false) String areaId,
-    //            @RequestParam(value = "accessType", required = false, defaultValue = "ENTRY") String accessType) {
-    //        try {
-    //            Area area = null;
-    //            if (areaId != null && !areaId.isEmpty()) {
-    //                Optional<Area> areaOpt = areaRepository.findById(areaId);
-    //                if (areaOpt.isPresent()) {
-    //                    area = areaOpt.get();
-    //                }
-    //            }
-    //
-    //            AccessLog accessLog = fingerprintFacade.createAccessLog(
-    //                    file, area, accessType, segmentationModelId, recognitionModelId);
-    //
-    //            RecognitionResult result = fingerprintFacade.recognizeFingerprint(
-    //                    file, segmentationModelId, recognitionModelId);
-    //
-    //            if (result.getEmployeeId() != null) {
-    //                Optional<Employee> employee = employeeRepository.findById(result.getEmployeeId());
-    //
-    //                if (employee.isEmpty()) {
-    //                    return ResponseEntity.ok(Map.of(
-    //                            "matched", false,
-    //                            "employeeId", result.getEmployeeId(),
-    //                            "confidence", result.getConfidence(),
-    //                            "accessLog", accessLog,
-    //                            "authorized", accessLog.isAuthorized(),
-    //                            "message", "Employee not found in the database but fingerprint matched"
-    //                    ));
-    //                }
-    //
-    //                return ResponseEntity.ok(Map.of(
-    //                        "matched", true,
-    //                        "employeeId", result.getEmployeeId(),
-    //                        "confidence", result.getConfidence(),
-    //                        "employee", employee.get(),
-    //                        "accessLog", accessLog,
-    //                        "authorized", accessLog.isAuthorized(),
-    //                        "segmentationModelId", segmentationModelId,
-    //                        "recognitionModelId", recognitionModelId
-    //                ));
-    //            } else {
-    //                return ResponseEntity.ok(Map.of(
-    //                        "matched", false,
-    //                        "confidence", result.getConfidence(),
-    //                        "accessLog", accessLog,
-    //                        "authorized", false,
-    //                        "id", result,
-    //                        "segmentationModelId", segmentationModelId,
-    //                        "recognitionModelId", recognitionModelId
-    //                ));
-    //            }
-    //        } catch (Exception e) {
-    //            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-    //                    .body(Map.of("error", "An unexpected error occurred: " + e.getMessage()));
-    //        }
-    //    }
+//        @PostMapping("/recognize")
+//        public ResponseEntity<?> recognizeFingerprint(
+//                @RequestParam("file") MultipartFile file,
+//                @RequestParam(value = "segmentationModelId", required = false) String segmentationModelId,
+//                @RequestParam(value = "recognitionModelId", required = false) String recognitionModelId,
+//                @RequestParam(value = "areaId", required = false) String areaId,
+//                @RequestParam(value = "accessType", required = false, defaultValue = "ENTRY") String accessType) {
+//            try {
+//                Area area = null;
+//                if (areaId != null && !areaId.isEmpty()) {
+//                    Optional<Area> areaOpt = areaRepository.findById(areaId);
+//                    if (areaOpt.isPresent()) {
+//                        area = areaOpt.get();
+//                    }
+//                }
+//
+//                AccessLog accessLog = fingerprintFacade.createAccessLog(
+//                        file, area, accessType, segmentationModelId, recognitionModelId);
+//
+//                RecognitionResult result = fingerprintFacade.recognizeFingerprint(
+//                        file, segmentationModelId, recognitionModelId);
+//
+//                if (result.getEmployeeId() != null) {
+//                    Optional<Employee> employee = employeeRepository.findById(result.getEmployeeId());
+//
+//                    if (employee.isEmpty()) {
+//                        return ResponseEntity.ok(Map.of(
+//                                "matched", false,
+//                                "employeeId", result.getEmployeeId(),
+//                                "confidence", result.getConfidence(),
+//                                "accessLog", accessLog,
+//                                "authorized", accessLog.isAuthorized(),
+//                                "message", "Employee not found in the database but fingerprint matched"
+//                        ));
+//                    }
+//
+//                    return ResponseEntity.ok(Map.of(
+//                            "matched", true,
+//                            "employeeId", result.getEmployeeId(),
+//                            "confidence", result.getConfidence(),
+//                            "employee", employee.get(),
+//                            "accessLog", accessLog,
+//                            "authorized", accessLog.isAuthorized(),
+//                            "segmentationModelId", segmentationModelId,
+//                            "recognitionModelId", recognitionModelId
+//                    ));
+//                } else {
+//                    return ResponseEntity.ok(Map.of(
+//                            "matched", false,
+//                            "confidence", result.getConfidence(),
+//                            "accessLog", accessLog,
+//                            "authorized", false,
+//                            "id", result,
+//                            "segmentationModelId", segmentationModelId,
+//                            "recognitionModelId", recognitionModelId
+//                    ));
+//                }
+//            } catch (Exception e) {
+//                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+//                        .body(Map.of("error", "An unexpected error occurred: " + e.getMessage()));
+//            }
+//        }
 
     private final FingerprintService fingerprintService;
     private final EmployeeRepository employeeRepository;
