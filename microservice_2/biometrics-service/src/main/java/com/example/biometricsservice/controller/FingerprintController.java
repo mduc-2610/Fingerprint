@@ -63,31 +63,21 @@ public class FingerprintController {
         }
     }
 
-    // @PostMapping("/register-multiple")
-    // public ResponseEntity<List<FingerprintSample>> registerMultipleFingerprints(
-    //         @RequestParam("employeeId") String employeeId,
-    //         @RequestParam("files") List<MultipartFile> files,
-    //         @RequestParam("positions") List<String> positions,
-    //         @RequestParam("segmentationModelId") String segmentationModelId,
-    //         @RequestParam("recognitionModelId") String recognitionModelId) {
-
-    //     try {
-    //         List<FingerprintSample> samples = fingerprintService.registerFingerprints(
-    //                 employeeId,
-    //                 files,
-    //                 positions,
-    //                 segmentationModelId,
-    //                 recognitionModelId
-    //         );
-    //         return ResponseEntity.status(HttpStatus.CREATED).body(samples);
-    //     } catch (Exception e) {
-    //         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-    //     }
-    // }
-
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteFingerprint(@PathVariable String id) {
         fingerprintSampleRepository.deleteById(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/by-recognition-model/{modelId}")
+    public ResponseEntity<List<FingerprintSample>> getFingerprintsByRecognitionModel(@PathVariable String modelId) {
+        List<FingerprintSample> samples = fingerprintSampleRepository.findByRecognitionModelId(modelId);
+        return ResponseEntity.ok(samples);
+    }
+    
+    @GetMapping("/by-segmentation-model/{modelId}")
+    public ResponseEntity<List<FingerprintSample>> getFingerprintsBySegmentationModel(@PathVariable String modelId) {
+        List<FingerprintSample> samples = fingerprintSampleRepository.findBySegmentationModelId(modelId);
+        return ResponseEntity.ok(samples);
     }
 }

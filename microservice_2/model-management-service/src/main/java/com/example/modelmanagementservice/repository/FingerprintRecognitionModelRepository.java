@@ -1,14 +1,17 @@
 package com.example.modelmanagementservice.repository;
 
+import com.example.modelmanagementservice.repository.ModelRepository;
 import com.example.modelmanagementservice.model.FingerprintRecognitionModel;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
 
+import org.springframework.stereotype.Repository;
+
 @Repository
-public interface FingerprintRecognitionModelRepository extends JpaRepository<FingerprintRecognitionModel, String> {
-    List<FingerprintRecognitionModel> findByAccuracyGreaterThan(float accuracy);
+public interface FingerprintRecognitionModelRepository 
+    extends ModelRepository<FingerprintRecognitionModel> {
+    
+    List<FingerprintRecognitionModel> findByAccuracyGreaterThan(float threshold);
     List<FingerprintRecognitionModel> findByCreatedAtAfter(LocalDateTime date);
 }

@@ -66,12 +66,12 @@ public class FingerprintService {
 
         logger.info("Starting fingerprint registration for employeeId: {}", employeeId);
 
-        var employeeResponse = userManagementClient.getEmployeeById(employeeId);
-        if (employeeResponse.getStatusCode().is4xxClientError()) {
-            logger.error("Employee not found: {}", employeeId);
-            throw new Exception("Employee with ID " + employeeId + " not found");
-        }
-        logger.info("Employee details fetched successfully for ID: {}", employeeId);
+        // var employeeResponse = userManagementClient.getEmployeeById(employeeId);
+        // if (employeeResponse.getStatusCode().is4xxClientError()) {
+        //     logger.error("Employee not found: {}", employeeId);
+        //     throw new Exception("Employee with ID " + employeeId + " not found");
+        // }
+        // logger.info("Employee details fetched successfully for ID: {}", employeeId);
 
         var segModelResponse = modelManagementClient.getSegmentationModelById(segmentationModelId);
         if (segModelResponse.getStatusCode().is4xxClientError()) {
@@ -131,6 +131,8 @@ public class FingerprintService {
                     .imageData(fileBytes)
                     .position(position)
                     .capturedAt(LocalDateTime.now())
+                    .segmentationModelId(segmentationModelId)
+                    .recognitionModelId(recognitionModelId)
                     .quality(1.0)
                     .build();
 
@@ -214,7 +216,7 @@ public class FingerprintService {
     @Transactional
     public Object createAccessLog(
             String employeeId,
-            String areaId,
+            Object area,
             String accessType,
             boolean isMatched,
             double confidence,
@@ -223,35 +225,35 @@ public class FingerprintService {
 
         LocalDateTime now = LocalDateTime.now();
 
-        // Create AccessLog via client
         Map<String, Object> accessLogData = new HashMap<>();
-        accessLogData.put("areaId", areaId);
+        accessLogData.put("area", area);
         accessLogData.put("employeeId", employeeId);
         accessLogData.put("timestamp", now);
         accessLogData.put("accessType", accessType);
         accessLogData.put("authorized", isMatched);
+        logger.info("Creating access log with areaId: {}", area);
 
         var accessLogResponse = accessControlClient.createAccessLog(accessLogData);
 
         if (accessLogResponse.getStatusCode().is4xxClientError()) {
             throw new Exception("Failed to create access log");
         }
-
-        // Get access log ID from response
-        JsonNode accessLogNode = new ObjectMapper().readTree(accessLogResponse.getBody().toString());
-        String accessLogId = accessLogNode.get("id").asText();
-
-        // Create recognition record
+        
+        Map<String, Object> responseBody = accessLogResponse.getBody();
+        String accessLogId = responseBody.get("id").toString();
+        
         Recognition recognition = Recognition.builder()
-                .employeeId(employeeId)
-                .accessLogId(accessLogId)
-                .fingerprintSegmentationModelId(segmentationModelId)
-                .fingerprintRecognitionModelId(recognitionModelId)
-                .timestamp(now)
-                .confidence((float) confidence)
-                .build();
-
+            .employeeId(employeeId)
+            .accessLogId(accessLogId)
+            .fingerprintSegmentationModelId(segmentationModelId)
+            .fingerprintRecognitionModelId(recognitionModelId)
+            .timestamp(now)
+            .confidence((float) confidence)
+            .build();
+        
         recognitionRepository.save(recognition);
+        accessControlClient.updateRecognitionId(accessLogId, recognition.getId());
+
 
         return accessLogResponse.getBody();
     }

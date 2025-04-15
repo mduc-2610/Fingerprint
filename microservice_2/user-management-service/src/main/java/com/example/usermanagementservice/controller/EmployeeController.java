@@ -1,56 +1,78 @@
 package com.example.usermanagementservice.controller;
 
+import com.example.usermanagementservice.client.AccessControlClient;
 import com.example.usermanagementservice.model.Employee;
-import com.example.usermanagementservice.model.UserStatistics;
-import com.example.usermanagementservice.service.EmployeeService;
+import com.example.usermanagementservice.model.EmployeeStatistics;
+import com.example.usermanagementservice.repository.EmployeeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.format.annotation.DateTimeFormat;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/employee")
 public class EmployeeController {
     @Autowired
-    private EmployeeService employeeService;
+    private EmployeeRepository employeeRepository;
+    
+    @Autowired
+    private AccessControlClient accessControlClient;
 
     @GetMapping
     public ResponseEntity<List<Employee>> getAllEmployees() {
-        return ResponseEntity.ok(employeeService.getAllEmployees());
+        return ResponseEntity.ok(employeeRepository.findAll());
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<Employee> getEmployeeById(@PathVariable String id) {
-        return employeeService.getEmployeeById(id)
+        return employeeRepository.findById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    @GetMapping("/{id}/statistics")
-    public ResponseEntity<UserStatistics> getEmployeeStatistics(@PathVariable String id) {
-        try {
-            return ResponseEntity.ok(employeeService.getEmployeeStatistics(id));
-        } catch (RuntimeException e) {
-            return ResponseEntity.notFound().build();
-        }
-    }
-
-    @PostMapping
-    public ResponseEntity<Employee> createEmployee(@RequestBody Employee employee) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(employeeService.createEmployee(employee));
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<Employee> updateEmployee(@PathVariable String id, @RequestBody Employee employee) {
-        employee.setId(id);
-        return ResponseEntity.ok(employeeService.updateEmployee(employee));
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteEmployee(@PathVariable String id) {
-        employeeService.deleteEmployee(id);
-        return ResponseEntity.noContent().build();
+     @GetMapping("/employee-statistics")
+    public ResponseEntity<List<Map<String, Object>>> getEmployeeStatistics(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+        
+        List<Object> accessLogs = accessControlClient.getAccessLogsByTimeRange(startDate, endDate);
+        
+        List<Employee> employees = employeeRepository.findAll();
+        
+        List<Map<String, Object>> statistics = employees.stream()
+            .map(employee -> {
+                List<Map<String, Object>> employeeLogs = accessLogs.stream()
+                    .map(log -> (Map<String, Object>) log)
+                    .filter(log -> employee.getId().equals(log.get("employeeId")))
+                    .collect(Collectors.toList());
+                
+                long authorizedAccess = employeeLogs.stream()
+                    .filter(log -> (Boolean) log.get("authorized"))
+                    .count();
+                
+                long unauthorizedAccess = employeeLogs.size() - authorizedAccess;
+                Map<String, Object> stats = new HashMap<>();
+                stats.put("employeeId", employee.getId());
+                stats.put("fullName", employee.getFullName());
+                stats.put("photoUrl", employee.getPhoto());
+                stats.put("totalAccesses", employeeLogs.size());
+                stats.put("authorizedAccess", authorizedAccess);
+                stats.put("unauthorizedAccess", unauthorizedAccess);
+                return stats;
+                
+            })
+            .collect(Collectors.toList());
+        
+        return ResponseEntity.ok(statistics);
     }
 }

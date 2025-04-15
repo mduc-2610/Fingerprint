@@ -11,6 +11,8 @@ import java.util.List;
 public interface RecognitionRepository extends JpaRepository<Recognition, String> {
     List<Recognition> findByEmployeeId(String employeeId);
     List<Recognition> findByTimestampBetween(LocalDateTime start, LocalDateTime end);
-    Recognition findByAccessLogId(String accessLogId);
+    List<Recognition> findByConfidenceGreaterThan(float confidence);
+    List<Recognition> findByFingerprintRecognitionModelId(String modelId);
+    List<Recognition> findByFingerprintSegmentationModelId(String modelId);
 }
 

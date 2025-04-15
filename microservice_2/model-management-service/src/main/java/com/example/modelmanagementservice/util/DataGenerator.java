@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 import jakarta.annotation.PostConstruct;
 
 import java.io.File;
@@ -38,8 +39,15 @@ public class DataGenerator {
 
     private static final String reportPath = "../fingerprint_training/reports/";
     
+    @Value("${data.generator.enabled:false}")
+    private boolean dataGeneratorEnabled;
+
     @PostConstruct
     public void initializeData() throws IOException {
+        if (!dataGeneratorEnabled) {
+            System.out.println("Data generator is disabled. Skipping data initialization.");
+            return;
+        }
 
         fingerprintRecognitionModelRepository.deleteAll();
         fingerprintSegmentationModelRepository.deleteAll();

@@ -11,16 +11,23 @@ import java.util.List;
 
 @FeignClient(
     name = "access-control-service",
-    url = "${access-control-service.url:http://localhost:8081}"
+    url = "${access-control-service.url}"
 )
 public interface AccessControlClient {
 
-    @GetMapping("/api/access-logs/employee/{employeeId}")
+    @GetMapping("/access-log/employee/{employeeId}")
     List<Object> getAccessLogsByEmployeeId(@PathVariable String employeeId);
 
-    @GetMapping("/api/access-logs/time-range")
+    @GetMapping("/access-log/time-range")
     List<Object> getAccessLogsByTimeRange(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime start,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end);
+            
+    @GetMapping("/access-log/filtered")
+    List<Object> getFilteredAccessLogs(
+            @RequestParam String employeeId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+            @RequestParam(required = false) String accessType,
+            @RequestParam(required = false) String areaId);
 }
-

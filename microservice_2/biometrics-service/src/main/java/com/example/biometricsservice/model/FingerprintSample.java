@@ -29,6 +29,8 @@ public class FingerprintSample {
     private LocalDateTime capturedAt;
     private Double quality;
     private Double lastRecognitionConfidence;
+    private String segmentationModelId; 
+    private String recognitionModelId; 
 
     @Version
     private Long version;

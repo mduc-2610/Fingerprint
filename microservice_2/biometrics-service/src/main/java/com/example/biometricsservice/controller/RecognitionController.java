@@ -64,13 +64,13 @@ public class RecognitionController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime end) {
         return ResponseEntity.ok(recognitionRepository.findByTimestampBetween(start, end));
     }
-
+    
     @PostMapping("/recognize")
     public ResponseEntity<?> recognizeFingerprint(
             @RequestParam("file") MultipartFile file,
             @RequestParam("segmentationModelId") String segmentationModelId,
             @RequestParam("recognitionModelId") String recognitionModelId,
-            @RequestParam(value = "areaId", required = false) String areaId,
+            @RequestParam(value = "areaId") String areaId,
             @RequestParam(value = "accessType", required = false, defaultValue = "ENTRY") String accessType) {
         
         if (file.isEmpty()) {
@@ -86,6 +86,8 @@ public class RecognitionController {
                 ResponseEntity<Object> areaResponse = accessControlClient.getAreaById(areaId);
                 if (areaResponse.getStatusCode().is2xxSuccessful() && areaResponse.getBody() != null) {
                     area = areaResponse.getBody();
+                    logger.info("Area found with ID: {}", areaId);
+
                 } else {
                     logger.warn("Area not found with ID: {}", areaId);
                 }
@@ -105,7 +107,7 @@ public class RecognitionController {
                     ));
             }
 
-            Object accessLog = createAccessLog(
+            Object accessLog = fingerprintService.createAccessLog(
                 result.getEmployeeId(), 
                 area, 
                 accessType, 
@@ -123,14 +125,12 @@ public class RecognitionController {
                     ? employeeResponse.getBody() 
                     : null;
 
-                // Prepare response for matched fingerprint
                 Map<String, Object> responseBody = new HashMap<>();
                 responseBody.put("matched", true);
                 responseBody.put("employeeId", result.getEmployeeId());
                 responseBody.put("confidence", result.getConfidence());
                 responseBody.put("accessLog", accessLog);
                 
-                // Add employee details if found
                 if (employee != null) {
                     responseBody.put("employee", employee);
                     responseBody.put("authorized", isAuthorized(accessLog));
@@ -141,7 +141,6 @@ public class RecognitionController {
 
                 return ResponseEntity.ok(responseBody);
             } 
-            // Handle unmatched fingerprint
             else {
                 return ResponseEntity.ok(Map.of(
                     "matched", false,
@@ -168,68 +167,22 @@ public class RecognitionController {
         }
     }
 
-    // Helper method to create access log via microservice
-    private Object createAccessLog(
-        String employeeId, 
-        Object area, 
-        String accessType, 
-        boolean matched, 
-        double confidence,
-        String segmentationModelId,
-        String recognitionModelId) {
-        
-        // Prepare access log object
-        Map<String, Object> accessLogRequest = new HashMap<>();
-        accessLogRequest.put("employeeId", employeeId);
-        accessLogRequest.put("area", area);
-        accessLogRequest.put("accessType", accessType);
-        accessLogRequest.put("matched", matched);
-        accessLogRequest.put("confidence", confidence);
-        accessLogRequest.put("segmentationModelId", segmentationModelId);
-        accessLogRequest.put("recognitionModelId", recognitionModelId);
 
-        // Create access log via microservice
-        ResponseEntity<Object> accessLogResponse = accessControlClient.createAccessLog(accessLogRequest);
-        
-        if (accessLogResponse.getStatusCode().is2xxSuccessful()) {
-            return accessLogResponse.getBody();
-        } else {
-            logger.warn("Failed to create access log: {}", accessLogResponse.getStatusCode());
-            return null;
-        }
-    }
-
-    // Helper method to determine authorization
     private boolean isAuthorized(Object accessLog) {
         return accessLog != null; 
     }
 
-    @PostMapping("/access")
-    public ResponseEntity<Object> logAccess(
-            @RequestBody Map<String, Object> request) {
-
-        try {
-            String employeeId = (String) request.get("employeeId");
-            String areaId = (String) request.get("areaId");
-            String accessType = (String) request.get("accessType");
-            boolean isMatched = (boolean) request.get("isMatched");
-            double confidence = (double) request.get("confidence");
-            String segmentationModelId = (String) request.get("segmentationModelId");
-            String recognitionModelId = (String) request.get("recognitionModelId");
-
-            Object accessLog = fingerprintService.createAccessLog(
-                    employeeId,
-                    areaId,
-                    accessType,
-                    isMatched,
-                    confidence,
-                    segmentationModelId,
-                    recognitionModelId
-            );
-
-            return ResponseEntity.status(HttpStatus.CREATED).body(accessLog);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+    
+    @GetMapping("/by-recognition-model/{modelId}")
+    public ResponseEntity<List<Recognition>> getRecognitionsByRecognitionModel(@PathVariable String modelId) {
+        List<Recognition> recognitions = recognitionRepository.findByFingerprintRecognitionModelId(modelId);
+        return ResponseEntity.ok(recognitions);
     }
+    
+    @GetMapping("/by-segmentation-model/{modelId}")
+    public ResponseEntity<List<Recognition>> getRecognitionsBySegmentationModel(@PathVariable String modelId) {
+        List<Recognition> recognitions = recognitionRepository.findByFingerprintSegmentationModelId(modelId);
+        return ResponseEntity.ok(recognitions);
+    }
+    
 }

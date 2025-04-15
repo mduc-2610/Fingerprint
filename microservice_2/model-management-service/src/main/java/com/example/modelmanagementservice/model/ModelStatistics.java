@@ -12,9 +12,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class ModelStatistics {
-    private String modelId;
-    private String modelName;
+    private Model model;
     private int totalUsage;
     private float averageConfidence;
-    private LocalDateTime lastUsed;
 }

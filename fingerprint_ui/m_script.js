@@ -8,6 +8,345 @@ const BASE_USER_SERVICE = `${BASE_URL}/api/users`;
 const BASE_BIOMETRICS_SERVICE = `${BASE_URL}/api/biometrics`;
 const BASE_MODEL_SERVICE = `${BASE_URL}/api/models`;
 const BASE_TRAINING_SERVICE = `${BASE_URL}/api/training`;
+const SEGMENTATION_MODEL_STATISTICS_URL = `${BASE_MODEL_SERVICE}/fingerprint-segmentation-model/statistics`;
+const RECOGNITION_MODEL_STATISTICS_URL = `${BASE_MODEL_SERVICE}/fingerprint-recognition-model/statistics`;
+
+let segmentationModelTableBody;
+let recognitionModelTableBody;
+let selectedModelDetails = null;
+
+// Function to initialize models tab
+function initModelsTab() {
+    segmentationModelTableBody = document.getElementById('segmentationModelTableBody');
+    recognitionModelTableBody = document.getElementById('recognitionModelTableBody');
+    
+    // Load initial model data
+    loadSegmentationModels();
+    loadRecognitionModels();
+    
+    // Add event listeners for model rows
+    segmentationModelTableBody.addEventListener('click', handleSegmentationModelClick);
+    recognitionModelTableBody.addEventListener('click', handleRecognitionModelClick);
+}
+
+// Function to load segmentation models with statistics
+async function loadSegmentationModels() {
+    try {
+        showLoading();
+        const response = await fetch(SEGMENTATION_MODEL_STATISTICS_URL);
+        
+        if (!response.ok) {
+            throw new Error(`Failed to load segmentation models: ${response.status}`);
+        }
+        
+        const models = await response.json();
+        renderSegmentationModels(models);
+    } catch (error) {
+        console.error('Error loading segmentation models:', error);
+        showAlert('danger', `Failed to load segmentation models: ${error.message}`);
+    } finally {
+        hideLoading();
+    }
+}
+
+// Function to load recognition models with statistics
+async function loadRecognitionModels() {
+    try {
+        showLoading();
+        const response = await fetch(RECOGNITION_MODEL_STATISTICS_URL);
+        
+        if (!response.ok) {
+            throw new Error(`Failed to load recognition models: ${response.status}`);
+        }
+        
+        const models = await response.json();
+        renderRecognitionModels(models);
+    } catch (error) {
+        console.error('Error loading recognition models:', error);
+        showAlert('danger', `Failed to load recognition models: ${error.message}`);
+    } finally {
+        hideLoading();
+    }
+}
+
+// Render segmentation models table
+function renderSegmentationModels(models) {
+    segmentationModelTableBody.innerHTML = '';
+    
+    if (models.length === 0) {
+        const row = document.createElement('tr');
+        row.innerHTML = '<td colspan="3" class="text-center">No segmentation models found</td>';
+        segmentationModelTableBody.appendChild(row);
+        return;
+    }
+    
+    models.forEach(model => {
+        const row = document.createElement('tr');
+        row.setAttribute('data-model-id', model.model.id);
+        row.className = 'model-row';
+        
+        const createdDate = model.totalUsage != null ? model.totalUsage : 'N/A';
+        
+        row.innerHTML = `
+            <td>${model.model.name}</td>
+            <td>${model.averageConfidence ? model.averageConfidence.toFixed(2) : 'N/A'}</td>
+            <td>${createdDate}</td>
+        `;
+        
+        segmentationModelTableBody.appendChild(row);
+    });
+}
+
+// Render recognition models table
+function renderRecognitionModels(models) {
+    recognitionModelTableBody.innerHTML = '';
+    
+    if (models.length === 0) {
+        const row = document.createElement('tr');
+        row.innerHTML = '<td colspan="3" class="text-center">No recognition models found</td>';
+        recognitionModelTableBody.appendChild(row);
+        return;
+    }
+    
+    models.forEach(model => {
+        const row = document.createElement('tr');
+        row.setAttribute('data-model-id', model.model.id);
+        row.className = 'model-row';
+        
+        const createdDate = model.totalUsage != null ? model.totalUsage : 'N/A';
+        
+        row.innerHTML = `
+            <td>${model.model.name}</td>
+            <td>${model.averageConfidence ? model.averageConfidence.toFixed(2) : 'N/A'}</td>
+            <td>${createdDate}</td>
+        `;
+        
+        recognitionModelTableBody.appendChild(row);
+    });
+}
+
+// Handle clicking on a segmentation model
+async function handleSegmentationModelClick(event) {
+    const row = event.target.closest('tr');
+    if (!row || !row.classList.contains('model-row')) return;
+    
+    const modelId = row.getAttribute('data-model-id');
+    if (!modelId) return;
+    
+    try {
+        showLoading();
+        
+        // Get the model details first
+        const modelResponse = await fetch(`${BASE_MODEL_SERVICE}/fingerprint-segmentation-model/${modelId}/statistics`);
+        if (!modelResponse.ok) {
+            throw new Error(`Failed to load model details: ${modelResponse.status}`);
+        }
+        const modelDetails = await modelResponse.json();
+        
+        // Get the fingerprint samples that used this model
+        const samplesResponse = await fetch(`${BASE_BIOMETRICS_SERVICE}/fingerprint/by-segmentation-model/${modelId}`);
+        if (!samplesResponse.ok) {
+            throw new Error(`Failed to load fingerprint samples: ${samplesResponse.status}`);
+        }
+        const samples = await samplesResponse.json();
+        
+        // Create and show modal with model details and samples
+        showModelDetailsModal('Segmentation Model Details', modelDetails, samples, 'fingerprint');
+    } catch (error) {
+        console.error('Error loading segmentation model details:', error);
+        showAlert('danger', `Failed to load model details: ${error.message}`);
+    } finally {
+        hideLoading();
+    }
+}
+
+// Handle clicking on a recognition model
+async function handleRecognitionModelClick(event) {
+    const row = event.target.closest('tr');
+    if (!row || !row.classList.contains('model-row')) return;
+    
+    const modelId = row.getAttribute('data-model-id');
+    if (!modelId) return;
+    
+    try {
+        showLoading();
+        
+        // Get the model details first
+        const modelResponse = await fetch(`${BASE_MODEL_SERVICE}/fingerprint-recognition-model/${modelId}/statistics`);
+        if (!modelResponse.ok) {
+            throw new Error(`Failed to load model details: ${modelResponse.status}`);
+        }
+        const modelDetails = await modelResponse.json();
+        
+        // Get the recognitions that used this model
+        const recognitionsResponse = await fetch(`${BASE_BIOMETRICS_SERVICE}/recognition/by-recognition-model/${modelId}`);
+        if (!recognitionsResponse.ok) {
+            throw new Error(`Failed to load recognitions: ${recognitionsResponse.status}`);
+        }
+        const recognitions = await recognitionsResponse.json();
+        
+        // Create and show modal with model details and recognitions
+        showModelDetailsModal('Recognition Model Details', modelDetails, recognitions, 'recognition');
+    } catch (error) {
+        console.error('Error loading recognition model details:', error);
+        showAlert('danger', `Failed to load model details: ${error.message}`);
+    } finally {
+        hideLoading();
+    }
+}
+
+// Function to show model details modal
+function showModelDetailsModal(title, modelDetails, items, type) {
+    // Check if modal already exists, remove it if it does
+    let existingModal = document.getElementById('modelDetailsModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // Create modal structure
+    const modal = document.createElement('div');
+    modal.id = 'modelDetailsModal';
+    modal.className = 'modal fade';
+    modal.tabIndex = '-1';
+    modal.setAttribute('aria-labelledby', 'modelDetailsModalLabel');
+    modal.setAttribute('aria-hidden', 'true');
+    
+    // Create modal content based on type (fingerprint or recognition)
+    let tableContent = '';
+    
+    if (type === 'fingerprint') {
+        tableContent = `
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Employee ID</th>
+                        <th>Position</th>
+                        <th>Quality</th>
+                        <th>Captured At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${items.length > 0 ? 
+                        items.map(item => `
+                            <tr>
+                                <td>${item.employeeId || 'N/A'}</td>
+                                <td>${item.position || 'N/A'}</td>
+                                <td>${item.quality ? item.quality.toFixed(2) : 'N/A'}</td>
+                                <td>${item.capturedAt ? new Date(item.capturedAt).toLocaleString() : 'N/A'}</td>
+                            </tr>
+                        `).join('') : 
+                        '<tr><td colspan="4" class="text-center">No fingerprint samples found</td></tr>'
+                    }
+                </tbody>
+            </table>
+        `;
+    } else { // recognition
+        tableContent = `
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Employee ID</th>
+                        <th>Timestamp</th>
+                        <th>Confidence</th>
+                        <th>Access Log ID</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${items.length > 0 ? 
+                        items.map(item => `
+                            <tr>
+                                <td>${item.employeeId || 'N/A'}</td>
+                                <td>${item.timestamp ? new Date(item.timestamp).toLocaleString() : 'N/A'}</td>
+                                <td>${item.confidence ? item.confidence.toFixed(2) : 'N/A'}</td>
+                                <td>${item.accessLogId || 'N/A'}</td>
+                            </tr>
+                        `).join('') : 
+                        '<tr><td colspan="4" class="text-center">No recognitions found</td></tr>'
+                    }
+                </tbody>
+            </table>
+        `;
+    }
+    
+    modal.innerHTML = `
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="modelDetailsModalLabel">${title}</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="card mb-3">
+                        <div class="card-header">
+                            <h6>Model Information</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <p><strong>Model ID:</strong> ${modelDetails.model.id}</p>
+                                    <p><strong>Model Name:</strong> ${modelDetails.model.name}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <p><strong>Total Usage:</strong> ${modelDetails.totalUsage}</p>
+                                    <p><strong>Average Confidence:</strong> ${modelDetails.averageConfidence ? modelDetails.averageConfidence.toFixed(2) : 'N/A'}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <div class="card-header">
+                            <h6>${type === 'fingerprint' ? 'Fingerprint Samples' : 'Recognition History'}</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-container" style="max-height: 300px; overflow-y: auto;">
+                                ${tableContent}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Initialize and show the modal
+    const modalInstance = new bootstrap.Modal(modal);
+    modalInstance.show();
+}
+
+// Helper function to show loading indicator
+function showLoading() {
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'flex';
+    }
+}
+
+// Helper function to hide loading indicator
+function hideLoading() {
+    const loadingIndicator = document.getElementById('loadingIndicator');
+    if (loadingIndicator) {
+        loadingIndicator.style.display = 'none';
+    }
+}
+
+// Helper function to show alert messages
+function showAlert(type, message, containerId = 'recognizeResultContent') {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    `;
+}
 
 function loadAreasForFilter() {
     fetch(`${BASE_ACCESS_CONTROL_SERVICE}/area`)
@@ -74,7 +413,7 @@ function loadEmployeeStatistics() {
 
     showLoading();
 
-    fetch(`${BASE_URL}/employee/statistics?startDate=${startDate}&endDate=${endDate}`)
+    fetch(`${BASE_USER_SERVICE}/employee/employee-statistics?startDate=${startDate}&endDate=${endDate}`)
         .then(response => response.json())
         .then(data => {
             tableBody.innerHTML = '';
@@ -143,7 +482,7 @@ function loadEmployeeAccessLogs(employeeId) {
 
     showLoading();
 
-    fetch(`${BASE_URL}/employee/${employeeId}/access-logs?startDate=${startDate}&endDate=${endDate}`)
+    fetch(`${BASE_ACCESS_CONTROL_SERVICE}/access-log/employee/${employeeId}/access-log?startDate=${startDate}&endDate=${endDate}`)
         .then(response => response.json())
         .then(data => {
             tableBody.innerHTML = '';
@@ -236,9 +575,21 @@ document.addEventListener('DOMContentLoaded', function() {
     setupEmployeeStatistics();
 
     setupFilePreview();
+
+    initModelsTab();
+    
+    // Add event listener for the models tab button to refresh data when clicked
+    const modelsTab = document.getElementById('models-tab');
+    if (modelsTab) {
+        modelsTab.addEventListener('click', function() {
+            loadSegmentationModels();
+            loadRecognitionModels();
+        });
+    }
 });
 
 // Models functions
+
 function loadModels() {
     showLoading();
     
@@ -247,7 +598,7 @@ function loadModels() {
         .then(data => {
             populateModelDropdown('segmentationModel', data);
             populateModelDropdown('segmentationModelRecognize', data);
-            populateModelTable('segmentationModelTableBody', data);
+            // populateModelTable('segmentationModelTableBody', data);
         })
         .catch(error => {
             console.error('Error loading segmentation models:', error);
@@ -258,7 +609,7 @@ function loadModels() {
         .then(data => {
             populateModelDropdown('recognitionModel', data);
             populateModelDropdown('recognitionModelRegister', data);
-            populateModelTable('recognitionModelTableBody', data);
+            // populateModelTable('recognitionModelTableBody', data);
             hideLoading();
         })
         .catch(error => {
@@ -574,13 +925,18 @@ function setupRecognizeForm() {
         formData.append('file', fingerprintFile);
         formData.append('segmentationModelId', segmentationModelId);
         formData.append('recognitionModelId', recognitionModelId);
-        // formData.append('accessType', accessType);
+        formData.append('accessType', accessType);
         // formData.append('accessType', accessTypeSelect.value);
         
         // Add area ID if selected
-        // if (areaId) {
-        //     formData.append('areaId', areaId);
-        // }
+        if (!areaId) {
+            alert('Please select area first.');
+            return;
+        }
+
+        if (areaId) {
+            formData.append('areaId', areaId);
+        }
         
         // Submit recognition request
         fetch(`${BASE_BIOMETRICS_SERVICE}/recognition/recognize`, {

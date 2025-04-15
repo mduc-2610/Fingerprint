@@ -2,7 +2,7 @@ package com.example.usermanagementservice.service;
 
 import com.example.usermanagementservice.client.AccessControlClient;
 import com.example.usermanagementservice.model.Employee;
-import com.example.usermanagementservice.model.UserStatistics;
+import com.example.usermanagementservice.model.EmployeeStatistics;
 import com.example.usermanagementservice.repository.EmployeeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -42,7 +42,7 @@ public class EmployeeService {
         employeeRepository.deleteById(id);
     }
 
-    public UserStatistics getEmployeeStatistics(String employeeId) {
+    public EmployeeStatistics getEmployeeStatistics(String employeeId) {
         Optional<Employee> employee = getEmployeeById(employeeId);
         if (!employee.isPresent()) {
             throw new RuntimeException("Employee not found");
@@ -55,7 +55,7 @@ public class EmployeeService {
         LocalDateTime firstAccessTime = LocalDateTime.now().minusDays(30);
         LocalDateTime lastAccessTime = LocalDateTime.now();
 
-        return new UserStatistics(
+        return new EmployeeStatistics(
                 employeeId,
                 employee.get().getFullName(),
                 totalAccesses,
