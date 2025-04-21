@@ -5,6 +5,7 @@ import com.example.fingerprint_backend.model.access.CameraImage;
 import com.example.fingerprint_backend.model.auth.Employee;
 import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintRecognitionModel;
 import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintSegmentationModel;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.annotation.Nullable;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -29,18 +30,22 @@ public class Recognition {
     @JoinColumn(name = "camera_image_id")
     private CameraImage cameraImage;
 
+    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "fingerprint_recognition_model_id")
     private FingerprintRecognitionModel fingerprintRecognitionModel;
 
+    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "fingerprint_region_model_id")
     private FingerprintSegmentationModel fingerprintSegmentationModel;
 
+    @JsonIgnore
     @OneToOne
     @JoinColumn(name = "access_log_id")
     private AccessLog accessLog;
 
+    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "employee_id")
     private Employee employee;

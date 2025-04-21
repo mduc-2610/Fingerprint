@@ -94,26 +94,5 @@ public ResponseEntity<List<EmployeeStatistics>> getEmployeeStatistics(
     return ResponseEntity.ok(statistics);
 }
 
-    @GetMapping("/{id}/access-logs")
-    public ResponseEntity<List<AccessLog>> getEmployeeAccessLogs(
-            @PathVariable String id,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
-            @RequestParam(required = false) String accessType,
-            @RequestParam(required = false) String areaId
-    ) {
-        Optional<Employee> employee = employeeRepository.findById(id);
-        if (employee.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
 
-        List<AccessLog> accessLogs = accessLogRepository.findByEmployeeIdAndTimestampBetween(
-                id,
-                startDate,
-                endDate,
-                accessType,
-                areaId
-        );
-        return ResponseEntity.ok(accessLogs);
-    }
 }

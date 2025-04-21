@@ -1,7 +1,9 @@
 package com.example.fingerprint_backend.controller.access;
 
 import com.example.fingerprint_backend.model.access.AccessLog;
+import com.example.fingerprint_backend.model.auth.Employee;
 import com.example.fingerprint_backend.repository.access.AccessLogRepository;
+import com.example.fingerprint_backend.repository.auth.EmployeeRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +19,7 @@ import java.util.Optional;
 public class AccessLogController {
 
     private final AccessLogRepository accessLogRepository;
+    private final EmployeeRepository employeeRepository;
 
     @GetMapping
     public List<AccessLog> getAllAccessLogs() {
@@ -50,5 +53,28 @@ public class AccessLogController {
     @PostMapping
     public AccessLog createAccessLog(@RequestBody AccessLog accessLog) {
         return accessLogRepository.save(accessLog);
+    }
+
+    @GetMapping("/by-employee/{employeeId}")
+    public ResponseEntity<List<AccessLog>> getAccessLogsByEmployee(
+            @PathVariable String employeeId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
+            @RequestParam(required = false) String accessType,
+            @RequestParam(required = false) String areaId
+    ) {
+        Optional<Employee> employee = employeeRepository.findById(employeeId);
+        if (employee.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        List<AccessLog> accessLogs = accessLogRepository.findByEmployeeIdAndTimestampBetween(
+                employeeId,
+                startDate,
+                endDate,
+                accessType,
+                areaId
+        );
+        return ResponseEntity.ok(accessLogs);
     }
 }

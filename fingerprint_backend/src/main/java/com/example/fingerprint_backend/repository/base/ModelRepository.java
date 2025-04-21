@@ -16,4 +16,5 @@ public interface ModelRepository<T, ID> extends JpaRepository<T, ID> {
     default Optional<T> findLatestModel() {
         return findTopByOrderByCreatedAtDesc();
     }
+
 }

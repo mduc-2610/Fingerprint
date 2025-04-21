@@ -288,7 +288,7 @@ function showModelDetailsModal(title, modelDetails, items, type) {
                                 </div>
                                 <div class="col-md-6">
                                     <p><strong>Total Usage:</strong> ${modelDetails.totalUsage}</p>
-                                    <p><strong>Average Confidence:</strong> ${modelDetails.averageConfidence ? modelDetails.averageConfidence.toFixed(2) : 'N/A'}</p>
+                                    ${type == "recognition" ? `<p><strong>Average Confidence:</strong> ${modelDetails.averageConfidence ? modelDetails.averageConfidence.toFixed(2) : 'N/A'}</p>` : ""}
                                 </div>
                             </div>
                         </div>

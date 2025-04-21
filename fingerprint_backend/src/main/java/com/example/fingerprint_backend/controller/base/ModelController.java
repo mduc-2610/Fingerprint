@@ -1,6 +1,8 @@
 package com.example.fingerprint_backend.controller.base;
 
 
+import com.example.fingerprint_backend.model.analytics.ModelStatistics;
+import com.example.fingerprint_backend.model.base.Model;
 import com.example.fingerprint_backend.repository.base.ModelRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -68,5 +70,46 @@ public abstract class ModelController<T, ID, R> {
         } else {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    @GetMapping("/{id}/statistics")
+    public ResponseEntity<ModelStatistics> getModelStatistics(@PathVariable ID id) {
+        return repository.findById(id)
+                .map( model -> {
+                    ModelStatistics statistics = ModelStatistics.builder()
+                            .model((Model) model)
+                            .totalUsage(calculateTotalUsage((Model) model))
+                            .averageConfidence(calculateAverageConfidence((Model) model))
+                            .build();
+
+                    return ResponseEntity.ok(statistics);
+                })
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @GetMapping("/statistics")
+    public ResponseEntity<List<ModelStatistics>> getAllModelStatistics() {
+        List<T> models = repository.findAll();
+
+        List<ModelStatistics> statisticsList = models.stream()
+                .map(model -> {
+                    ModelStatistics statistics = ModelStatistics.builder()
+                            .model((Model) model)
+                            .totalUsage(calculateTotalUsage((Model) model))
+                            .averageConfidence(calculateAverageConfidence((Model) model))
+                            .build();
+                    return statistics;
+                })
+                .toList();
+
+        return ResponseEntity.ok(statisticsList);
+    }
+
+    protected int calculateTotalUsage(Model model) {
+        return 0;
+    }
+
+    protected float calculateAverageConfidence(Model model) {
+        return 0f;
     }
 }
