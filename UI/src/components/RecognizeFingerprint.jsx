@@ -1,0 +1,175 @@
+import React, { useState, useEffect } from 'react';
+import { apiService } from '../config/api';
+
+export function RecognizeFingerprint() {
+  const [areas, setAreas] = useState([]);
+  const [fingerprintFile, setFingerprintFile] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null);
+  const [selectedArea, setSelectedArea] = useState('');
+  const [recognitionResult, setRecognitionResult] = useState(null);
+  const [error, setError] = useState(null);
+
+  // Tải danh sách khu vực
+  useEffect(() => {
+    const loadAreas = async () => {
+      try {
+        const response = await apiService.getAreas();
+        setAreas(response);
+      } catch (error) {
+        setError('Lỗi tải danh sách khu vực');
+      }
+    };
+
+    loadAreas();
+  }, []);
+
+  // Xử lý tải ảnh xem trước
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    setFingerprintFile(file);
+
+    // Tạo ảnh xem trước
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPreviewImage(reader.result);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Xử lý nhận dạng dấu vân tay
+  const handleRecognizeFingerprint = async (e) => {
+    e.preventDefault();
+
+    // Kiểm tra đầu vào
+    if (!fingerprintFile) {
+      setError('Vui lòng chọn ảnh dấu vân tay');
+      return;
+    }
+    if (!selectedArea) {
+      setError('Vui lòng chọn khu vực');
+      return;
+    }
+
+    try {
+      // Tạo form data
+      const formData = new FormData();
+      formData.append('file', fingerprintFile);
+      formData.append('areaId', selectedArea);
+
+      // Gọi API nhận dạng
+      const response = await apiService.recognizeFingerprint(formData);
+      
+      setRecognitionResult(response);
+      setError(null);
+    } catch (error) {
+      setError('Lỗi nhận dạng dấu vân tay');
+      setRecognitionResult(null);
+    }
+  };
+
+  return (
+    <div>
+      <h2 className="text-2xl font-semibold mb-4">Nhận Dạng Dấu Vân Tay</h2>
+      
+      <form onSubmit={handleRecognizeFingerprint} className="space-y-4">
+        <div>
+          <label className="block mb-2">Khu Vực</label>
+          <select 
+            value={selectedArea}
+            onChange={(e) => setSelectedArea(e.target.value)}
+            className="w-full p-2 border rounded-md"
+          >
+            <option value="">Chọn khu vực</option>
+            {areas.map((area) => (
+              <option key={area.id} value={area.id}>
+                {area.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block mb-2">Ảnh Dấu Vân Tay</label>
+          <input 
+            type="file" 
+            accept=".bmp,.tif,.tiff"
+            onChange={handleFileChange}
+            className="w-full p-2 border rounded-md"
+          />
+        </div>
+
+        {/* Xem trước ảnh */}
+        {previewImage && (
+          <div className="text-center">
+            <img 
+              src={previewImage} 
+              alt="Ảnh dấu vân tay" 
+              className="max-h-[300px] mx-auto rounded-lg"
+            />
+          </div>
+        )}
+
+        {/* Hiển thị lỗi */}
+        {error && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+            {error}
+          </div>
+        )}
+
+        <button 
+          type="submit" 
+          className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition"
+        >
+          Nhận Dạng Dấu Vân Tay
+        </button>
+      </form>
+
+      {/* Kết quả nhận dạng */}
+      {recognitionResult && (
+        <div className="mt-6">
+          {recognitionResult.matched ? (
+            <div className={`
+              p-4 rounded-lg 
+              ${recognitionResult.authorized ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}
+            `}>
+              <h3 className={`
+                text-lg font-semibold mb-2 
+                ${recognitionResult.authorized ? 'text-green-700' : 'text-yellow-700'}
+              `}>
+                {recognitionResult.authorized ? 'Nhận Dạng Thành Công' : 'Truy Cập Bị Từ Chối'}
+              </h3>
+              
+              <div className="space-y-2">
+                <div className="flex items-center">
+                  <img 
+                    src={recognitionResult.employee?.photoUrl || '/avt.png'} 
+                    alt="Ảnh nhân viên"
+                    className="w-20 h-20 rounded-full object-cover mr-4"
+                  />
+                  <div>
+                    <p className="font-semibold">
+                      {recognitionResult.employee?.fullName || 'Không xác định'}
+                    </p>
+                    <p>Mã NV: {recognitionResult.employee?.id || 'N/A'}</p>
+                  </div>
+                </div>
+                
+                <p>Độ Chính Xác: {(recognitionResult.confidence * 100).toFixed(2)}%</p>
+                <p>Thời Gian: {new Date(recognitionResult.accessLog.timestamp).toLocaleString()}</p>
+                <p>Khu Vực: {recognitionResult.accessLog.area?.name || 'Không xác định'}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-red-50 border border-red-200 p-4 rounded-lg text-red-700">
+              <h3 className="text-lg font-semibold mb-2">Nhận Dạng Thất Bại</h3>
+              <p>Không tìm thấy dấu vân tay phù hợp</p>
+              <p>Độ Chính Xác: {(recognitionResult.confidence * 100).toFixed(2)}%</p>
+              <p>Thời Gian: {new Date(recognitionResult.accessLog.timestamp).toLocaleString()}</p>
+              <p>Khu Vực: {recognitionResult.accessLog.area?.name || 'Không xác định'}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}

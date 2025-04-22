@@ -13,3 +13,5 @@ fingerprint_backend/fingerprint_training/DB2_B
 fingerprint_backend/fingerprint_training/fingerprint_adapting_dataset
 microservice/fingerprint_training
 microservice_2/fingerprint_training
+
+/UI/node_modules
