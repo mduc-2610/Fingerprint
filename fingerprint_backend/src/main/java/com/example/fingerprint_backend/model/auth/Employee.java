@@ -39,5 +39,5 @@ public class Employee extends User {
     @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<FingerprintSample> fingerprintSamples;
 
-
+    private int maxNumberSamples = 5;
 }

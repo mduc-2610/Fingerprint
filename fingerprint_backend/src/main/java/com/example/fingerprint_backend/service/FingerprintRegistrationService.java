@@ -10,9 +10,11 @@ import com.example.fingerprint_backend.repository.biometrics.fingerprint.Fingerp
 import com.example.fingerprint_backend.repository.biometrics.fingerprint.FingerprintRecognitionModelRepository;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -46,6 +48,13 @@ public class FingerprintRegistrationService {
         Optional<Employee> employeeOpt = employeeRepository.findById(employeeId);
         Employee employee = employeeOpt.orElseThrow(() ->
                 new Exception("Employee with ID " + employeeId + " not found"));
+
+        int activeFingerprints = fingerprintSampleRepository.countByEmployeeIdAndActiveTrue(employee.getId());
+        if (activeFingerprints >= employee.getMaxNumberSamples()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Employee has reached the maximum number of fingerprint samples: " + employee.getMaxNumberSamples());
+        }
 
         Optional<FingerprintSegmentationModel> segModelOpt = segmentationModelRepository.findById(segmentationModelId);
         FingerprintSegmentationModel segmentationModel = segModelOpt.orElseThrow(() ->
@@ -87,6 +96,7 @@ public class FingerprintRegistrationService {
                     .quality(1.0)
                     .fingerprintRecognitionModel(recognitionModel)
                     .fingerprintSegmentationModel(segmentationModel)
+                    .active(true)
                     .build();
 
             FingerprintSample savedSample = fingerprintSampleRepository.save(sample);

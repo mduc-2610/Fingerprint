@@ -9,12 +9,14 @@ import lombok.Builder;
 
 import jakarta.persistence.*;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class EmployeeAccessArea {
+public class EmployeeAreaAccess {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
@@ -27,4 +29,6 @@ public class EmployeeAccessArea {
     @JsonIgnore
     @JoinColumn(name = "employee_id")
     private Employee employee;
+
+    private LocalDateTime timestamp;
 }
