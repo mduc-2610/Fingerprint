@@ -22,6 +22,8 @@ public interface FingerprintSampleRepository extends JpaRepository<FingerprintSa
     int countByEmployeeIdAndActiveTrue(String employeeId);
 
     boolean existsByIdAndEmployeeId(String id, String employeeId);
+    List<FingerprintSample> findByEmployeeIdAndPositionAndActiveTrue(String employeeId, String position);
+    List<FingerprintSample> findByEmployeeIdAndPositionAndActiveFalse(String employeeId, String position);
 
     @Modifying
     @Transactional

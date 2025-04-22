@@ -26,8 +26,9 @@ public class Employee extends User {
         super(id, fullName, phoneNumber, photo, address, username, email, password);
     }
 
-    public Employee(String id, String fullName, String phoneNumber, String photo, String address) {
+    public Employee(String id, String fullName, String phoneNumber, String photo, String address, int maxNumberSamples) {
         super(id, fullName, phoneNumber, photo, address, null, null, null);
+        this.maxNumberSamples = maxNumberSamples;
     }
 
     @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
@@ -39,5 +40,5 @@ public class Employee extends User {
     @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<FingerprintSample> fingerprintSamples;
 
-    private int maxNumberSamples = 5;
+    private int maxNumberSamples;
 }

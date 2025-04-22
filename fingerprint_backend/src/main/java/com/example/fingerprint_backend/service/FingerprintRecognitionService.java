@@ -44,6 +44,7 @@ public class FingerprintRecognitionService {
     private final FingerprintRecognitionModelRepository recognitionModelRepository;
     private final RecognitionRepository recognitionRepository;
     private final AccessLogRepository accessLogRepository;
+    private final AreaAccessValidationService areaAccessValidationService;
 
     public RecognitionResult recognizeFingerprint(
             MultipartFile fingerprintImage,
@@ -207,14 +208,17 @@ public class FingerprintRecognitionService {
 
     private boolean determineAuthorization(Employee employee, Area area) {
         if (area == null) {
+            // If no area specified, access is granted (system-level access)
             return true;
         }
 
         if (employee == null) {
+            // No employee identified, no access
             return false;
         }
 
-        return true;
+        // Validate access using the access validation service
+        return areaAccessValidationService.validateAccess(employee, area);
     }
 
     private String executeRecognitionScript(String imagePath, String segmentationModelPath, String recognitionModelPath)

@@ -7,9 +7,6 @@ import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintS
 import com.example.fingerprint_backend.repository.access.AccessLogRepository;
 import com.example.fingerprint_backend.repository.auth.EmployeeRepository;
 import com.example.fingerprint_backend.repository.biometrics.fingerprint.FingerprintSampleRepository;
-import com.example.fingerprint_backend.service.strategy_pattern.EmployeeStatisticsService2;
-import com.example.fingerprint_backend.service.template_pattern.AccessCountStatistics;
-import com.example.fingerprint_backend.service.template_pattern.AreaBasedStatistics;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -27,7 +24,6 @@ public class EmployeeController {
     private final FingerprintSampleRepository fingerprintSampleRepository;
     private final EmployeeRepository employeeRepository;
     private final AccessLogRepository accessLogRepository;
-    private final EmployeeStatisticsService2 statisticsService;
 
 
     @GetMapping
@@ -75,24 +71,13 @@ public class EmployeeController {
         return ResponseEntity.ok(samples);
     }
 
-@GetMapping("/statistics")
-public ResponseEntity<List<EmployeeStatistics>> getEmployeeStatistics(
-        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
-        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate,
-        @RequestParam(required = false) String areaId) {
+    @GetMapping("/statistics")
+    public ResponseEntity<List<EmployeeStatistics>> getEmployeeStatistics(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
 
-    // Chọn loại thống kê dựa trên tham số truyền vào
-    List<EmployeeStatistics> statistics;
-    if (areaId != null) {
-        statistics = statisticsService.getStatistics(
-                new AreaBasedStatistics(areaId), startDate, endDate);
-    } else {
-        statistics = statisticsService.getStatistics(
-                new AccessCountStatistics(), startDate, endDate);
+        List<EmployeeStatistics> statistics = employeeRepository.getEmployeeStatisticsByDateRange(startDate, endDate);
+        return ResponseEntity.ok(statistics);
     }
-
-    return ResponseEntity.ok(statistics);
-}
-
 
 }

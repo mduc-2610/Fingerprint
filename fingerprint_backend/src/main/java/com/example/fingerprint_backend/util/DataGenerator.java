@@ -67,7 +67,6 @@ public class DataGenerator {
     //    @PostConstruct
     public void initializeData() throws IOException {
 
-        recognitionRepository.deleteAll();
         accessLogRepository.deleteAll();
         fingerprintSampleRepository.deleteAll();
         employeeRepository.deleteAll();
@@ -79,6 +78,7 @@ public class DataGenerator {
         trainingDataRepository.deleteAll();
         fingerprintRecognitionModelRepository.deleteAll();
         fingerprintSegmentationModelRepository.deleteAll();
+        recognitionRepository.deleteAll();
         if (employeeRepository.count() > 0) {
             return;
         }
@@ -89,11 +89,7 @@ public class DataGenerator {
 
         List<Admin> admins = createAdmins(3);
 
-        List<Employee> employees = createEmployeesFromDataset();
-
-        if (employees.isEmpty()) {
-            employees = createFakeEmployees(20);
-        }
+        List<Employee> employees = createFakeEmployees(20);
 
 
         List<FingerprintRecognitionModel> recognitionModel = loadRecognitionModel("fingerprint_recognition_models.json");
@@ -109,37 +105,6 @@ public class DataGenerator {
 //        List<AccessLog> accessLogs = createAccessLogs(employees, areas);
 
         System.out.println("Initialized data with " + employees.size() + " employees");
-    }
-
-    private List<Employee> createEmployeesFromDataset() {
-        List<Employee> employees = new ArrayList<>();
-
-        File datasetDir = new File("fingerprint_adapting_test_dataset");
-        File[] datasetFolders = datasetDir.listFiles(File::isDirectory);
-
-        if (datasetFolders == null || datasetFolders.length == 0) {
-            System.out.println("No dataset folders found in fingerprint_adapting_test_dataset");
-            return employees;
-        }
-
-        for (File folder : datasetFolders) {
-            String datasetId = folder.getName();
-
-            Employee employee = Employee.builder()
-                    .id(UUID.randomUUID().toString())
-                    .fullName(faker.name().fullName())
-                    .phoneNumber(faker.phoneNumber().cellPhone())
-                    .username(faker.name().username())
-                    .email(faker.internet().emailAddress())
-                    .password(faker.internet().password())
-                    .build();
-
-            employee.setFingerprintSamples(new ArrayList<>());
-            employees.add(employeeRepository.save(employee));
-        }
-
-        System.out.println("Loaded " + employees.size() + " employees with fingerprint samples from dataset");
-        return employees;
     }
 
     private String getRandomFingerPosition() {
@@ -228,6 +193,7 @@ public class DataGenerator {
                     .phoneNumber(faker.phoneNumber().cellPhone())
                     .photo("employee_photo_" + i + ".jpg")
                     .address(faker.address().fullAddress())
+                    .maxNumberSamples(5)
                     .build();
             employees.add(employeeRepository.save(employee));
         }

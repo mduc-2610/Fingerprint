@@ -1,10 +1,10 @@
 package com.example.fingerprint_backend.controller.access;
 
 import com.example.fingerprint_backend.model.access.Area;
-import com.example.fingerprint_backend.model.access.EmployeeAreaAccess;
+import com.example.fingerprint_backend.model.access.AreaAccess;
 import com.example.fingerprint_backend.model.auth.Employee;
 import com.example.fingerprint_backend.repository.access.AreaRepository;
-import com.example.fingerprint_backend.repository.access.EmployeeAreaAccessRepository;
+import com.example.fingerprint_backend.repository.access.AreaAccessRepository;
 import com.example.fingerprint_backend.repository.auth.EmployeeRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -14,20 +14,26 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/access")
-public class EmployeeAreaAccessController {
+public class AreaAccessController {
     @Autowired
-    private EmployeeAreaAccessRepository employeeAreaAccessRepository;
+    private AreaAccessRepository areaAccessRepository;
 
     @Autowired
     private EmployeeRepository employeeRepository;
 
     @Autowired
     private AreaRepository areaRepository;
+
+    @GetMapping("/by-employee/{employeeId}")
+    public ResponseEntity<List<AreaAccess>> getAccessByEmployee(@PathVariable String employeeId) {
+        return ResponseEntity.ok(areaAccessRepository.findByEmployeeId(employeeId));
+    }
 
 
     @PostMapping("/grant")
@@ -43,19 +49,19 @@ public class EmployeeAreaAccessController {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Area not found with id: " + areaId));
 
-        boolean accessExists = employeeAreaAccessRepository.existsByEmployeeAndArea(employee, area);
+        boolean accessExists = areaAccessRepository.existsByEmployeeAndArea(employee, area);
         if (accessExists) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT, "Employee already has access to this area");
         }
 
-        EmployeeAreaAccess accessPermission = EmployeeAreaAccess.builder()
+        AreaAccess accessPermission = AreaAccess.builder()
                 .employee(employee)
                 .area(area)
                 .timestamp(LocalDateTime.now())
                 .build();
 
-        EmployeeAreaAccess savedAccess = employeeAreaAccessRepository.save(accessPermission);
+        AreaAccess savedAccess = areaAccessRepository.save(accessPermission);
 
         Map<String, Object> response = new HashMap<>();
         response.put("message", "Access granted successfully");
@@ -71,12 +77,12 @@ public class EmployeeAreaAccessController {
 
     @DeleteMapping("/revoke/{accessId}")
     public ResponseEntity<Map<String, Object>> revokeAccess(@PathVariable String accessId) {
-        if (!employeeAreaAccessRepository.existsById(accessId)) {
+        if (!areaAccessRepository.existsById(accessId)) {
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND, "Access permission not found with id: " + accessId);
         }
 
-        employeeAreaAccessRepository.deleteById(accessId);
+        areaAccessRepository.deleteById(accessId);
 
         Map<String, Object> response = new HashMap<>();
         response.put("message", "Access permission revoked successfully");
@@ -98,14 +104,14 @@ public class EmployeeAreaAccessController {
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Area not found with id: " + areaId));
 
-        Optional<EmployeeAreaAccess> existingAccess = employeeAreaAccessRepository.findByEmployeeAndArea(employee, area);
+        Optional<AreaAccess> existingAccess = areaAccessRepository.findByEmployeeAndArea(employee, area);
 
         if (existingAccess.isEmpty()) {
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND, "No access permission found for employee id " + employeeId + " and area id " + areaId);
         }
 
-        int deletedCount = employeeAreaAccessRepository.deleteByEmployeeIdAndAreaId(employeeId, areaId);
+        int deletedCount = areaAccessRepository.deleteByEmployeeIdAndAreaId(employeeId, areaId);
 
         Map<String, Object> response = new HashMap<>();
         response.put("message", "Access permissions revoked successfully");

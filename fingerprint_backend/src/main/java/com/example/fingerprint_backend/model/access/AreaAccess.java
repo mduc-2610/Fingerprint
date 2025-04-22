@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class EmployeeAreaAccess {
+public class AreaAccess {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
