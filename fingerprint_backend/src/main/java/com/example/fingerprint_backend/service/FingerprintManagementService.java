@@ -1,36 +1,19 @@
 package com.example.fingerprint_backend.service;
 
-import com.example.fingerprint_backend.model.auth.Employee;
 import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintSample;
-import com.example.fingerprint_backend.repository.auth.EmployeeRepository;
-import com.example.fingerprint_backend.repository.biometrics.fingerprint.FingerprintSampleRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 @Service
 public class FingerprintManagementService {
 
-    private static final String ADAPTING_DATASET_BASE_PATH = "fingerprint_training/fingerprint_adapting_dataset/";
-    private static final String DISABLED_BASE_PATH = "fingerprint_training/fingerprint_disabled/";
-
-    @Autowired
-    private FingerprintSampleRepository fingerprintSampleRepository;
-
-    @Autowired
-    private EmployeeRepository employeeRepository;
-
+    private static final String ADAPTING_DATASET_BASE_PATH = "../../../../../../../../AI-modal-service/fingerprint_adapting_dataset";
+    private static final String DISABLED_BASE_PATH = "./../../../../../../../AI-modal-service/fingerprint_disabled";
 
     public void moveFileToDisabledDirectory(String image, String employeeId) throws IOException {
         Path disabledDir = Paths.get(DISABLED_BASE_PATH + employeeId);

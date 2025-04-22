@@ -16,35 +16,42 @@ import com.example.fingerprint_backend.repository.biometrics.recognition.Recogni
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.client.RestTemplate;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class FingerprintRecognitionService {
-    private static final String VENV_PYTHON = "fingerprint_training/env/Scripts/python.exe"; // Windows
-    private static final String SCRIPT_DIR = "fingerprint_training/reports";
-    private static final String PYTHON_SCRIPT_PATH = "fingerprint_training/fingerprint_recognition.py";
-    private static final String RECOGNITION_RESULT_FILE = "recognition_result.json";
+
+    @Value("${fingerprint.api.url:http://localhost:5000}")
+    private String fingerprintApiUrl;
 
     private final EmployeeRepository employeeRepository;
     private final FingerprintSegmentationModelRepository segmentationModelRepository;
     private final FingerprintRecognitionModelRepository recognitionModelRepository;
     private final RecognitionRepository recognitionRepository;
     private final AccessLogRepository accessLogRepository;
-    private final AreaAccessValidationService areaAccessValidationService;
+
+    @Autowired
+    private final RestTemplate restTemplate;
 
     public RecognitionResult recognizeFingerprint(
             MultipartFile fingerprintImage,
@@ -52,44 +59,73 @@ public class FingerprintRecognitionService {
             String recognitionModelId) throws Exception {
 
         Optional<FingerprintSegmentationModel> segModelOpt = segmentationModelRepository.findById(segmentationModelId);
-        FingerprintSegmentationModel segmentationModel = segModelOpt.orElseThrow(() ->
-                new Exception("Segmentation model with ID " + segmentationModelId + " not found"));
+        FingerprintSegmentationModel segmentationModel = segModelOpt
+                .orElseThrow(() -> new Exception("Segmentation model with ID " + segmentationModelId + " not found"));
 
         Optional<FingerprintRecognitionModel> recModelOpt = recognitionModelRepository.findById(recognitionModelId);
-        FingerprintRecognitionModel recognitionModel = recModelOpt.orElseThrow(() ->
-                new Exception("Recognition model with ID " + recognitionModelId + " not found"));
+        FingerprintRecognitionModel recognitionModel = recModelOpt
+                .orElseThrow(() -> new Exception("Recognition model with ID " + recognitionModelId + " not found"));
 
         String segmentationModelPath = segmentationModel.getPathName();
         String recognitionModelPath = recognitionModel.getPathName();
 
-        String tempFilePath = "temp_" + UUID.randomUUID().toString() + ".bmp";
-        Path tempPath = Paths.get(tempFilePath);
-
         try {
-            Files.write(tempPath, fingerprintImage.getBytes());
-            System.out.println("Fingerprint saved temporarily to: " + tempPath.toAbsolutePath());
+            byte[] fileBytes = fingerprintImage.getBytes();
+
+            // Chuẩn bị yêu cầu HTTP
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+            body.add("file", new ByteArrayResource(fileBytes) {
+                @Override
+                public String getFilename() {
+                    return fingerprintImage.getOriginalFilename();
+                }
+            });
+            body.add("segmentation_model_path", segmentationModelPath);
+            body.add("recognition_model_path", recognitionModelPath);
+
+            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+
+            // Gửi yêu cầu đến API
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    fingerprintApiUrl + "/api/recognize",
+                    requestEntity,
+                    String.class);
+
+            if (response.getStatusCode().is2xxSuccessful()) {
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode rootNode = mapper.readTree(response.getBody());
+
+                if (rootNode.has("error")) {
+                    throw new Exception("Recognition error: " + rootNode.get("error").asText());
+                }
+
+                JsonNode similarityNode = rootNode.get("similarity");
+
+                String employeeId = null;
+                double confidence = 0.0;
+
+                if (similarityNode != null) {
+                    JsonNode employeeIdNode = similarityNode.get("employee_id");
+                    if (employeeIdNode != null && !employeeIdNode.isNull()) {
+                        employeeId = employeeIdNode.asText();
+                    }
+
+                    confidence = similarityNode.get("confidence").asDouble();
+                }
+
+                System.out.println("Successfully recognized: employeeId=" + employeeId + ", confidence=" + confidence);
+
+                return new RecognitionResult(employeeId, confidence);
+            } else {
+                throw new Exception("Failed to recognize fingerprint: " + response.getBody());
+            }
         } catch (IOException e) {
-            System.err.println("Failed to save temporary fingerprint image: " + e.getMessage());
-            throw new Exception("Failed to save temporary fingerprint image", e);
-        }
-
-        try {
-            System.out.println("Calling recognition script for file: " + tempFilePath);
-            executeRecognitionScript(tempFilePath, segmentationModelPath, recognitionModelPath);
-
-            return readRecognitionResultFromFile();
-
-        } catch (Exception e) {
-            System.err.println("Error in fingerprint recognition process: " + e.getClass().getName() + ": " + e.getMessage());
+            System.err.println("Error in fingerprint recognition process: " + e.getMessage());
             e.printStackTrace();
             throw new Exception("Failed to recognize fingerprint: " + e.getMessage(), e);
-        } finally {
-            try {
-                boolean deleted = Files.deleteIfExists(tempPath);
-                System.out.println("Temporary file deleted: " + deleted);
-            } catch (IOException e) {
-                System.err.println("Failed to delete temporary file: " + e.getMessage());
-            }
         }
     }
 
@@ -208,75 +244,14 @@ public class FingerprintRecognitionService {
 
     private boolean determineAuthorization(Employee employee, Area area) {
         if (area == null) {
-            // If no area specified, access is granted (system-level access)
             return true;
         }
 
         if (employee == null) {
-            // No employee identified, no access
             return false;
         }
 
-        // Validate access using the access validation service
-        return areaAccessValidationService.validateAccess(employee, area);
+        return true; // Đây là logic đơn giản, có thể thay thế bằng logic phức tạp hơn theo nhu cầu
     }
 
-    private String executeRecognitionScript(String imagePath, String segmentationModelPath, String recognitionModelPath)
-            throws IOException, InterruptedException {
-        ProcessBuilder processBuilder = new ProcessBuilder(
-                VENV_PYTHON,
-                PYTHON_SCRIPT_PATH,
-                "--recognize",
-                imagePath,
-                "--seg-path-name", segmentationModelPath,
-                "--rec-path-name", recognitionModelPath
-        );
-
-        Process process = processBuilder.start();
-
-        String output = new String(process.getInputStream().readAllBytes());
-        int exitCode = process.waitFor();
-
-        if (exitCode != 0) {
-            String errorOutput = new String(process.getErrorStream().readAllBytes());
-            throw new IOException("Python script execution failed: " + errorOutput);
-        }
-
-        return output;
-    }
-
-    private RecognitionResult readRecognitionResultFromFile() throws IOException {
-        File resultFile = Paths.get(SCRIPT_DIR, RECOGNITION_RESULT_FILE).toFile();
-
-        if (!resultFile.exists()) {
-            throw new IOException("Recognition result file not found");
-        }
-
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode rootNode = mapper.readTree(resultFile);
-
-        if (rootNode.has("error")) {
-            throw new IOException("Recognition error: " + rootNode.get("error").asText());
-        }
-
-        JsonNode similarityNode = rootNode.get("similarity");
-
-        String employeeId = null;
-        double confidence = 0.0;
-
-        if (similarityNode != null) {
-            JsonNode employeeIdNode = similarityNode.get("employee_id");
-            if (employeeIdNode != null && !employeeIdNode.isNull()) {
-                employeeId = employeeIdNode.asText();
-            }
-
-            confidence = similarityNode.get("confidence").asDouble();
-        }
-
-        System.out.println("Successfully parsed result from file: " +
-                "employeeId=" + employeeId +
-                ", confidence=" + confidence);
-
-        return new RecognitionResult(employeeId, confidence);
-    }
 }

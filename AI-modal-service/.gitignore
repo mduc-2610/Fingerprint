@@ -1,0 +1,15 @@
+./fingerprint_training/dataset
+./fingerprint_training/env
+./fingerprint_training/finger_region/output
+./fingerprint_training/fingerprint_models
+./fingerprint_training/fingerprint_recognition/dataset
+# ./fingerprint_training/fingerprint_recognition/prompt.py
+./fingerprint_training/fingerprint_results
+./fingerprint_training/reports
+./fingerprint_training/fingerprint_adapting_models
+./fingerprint_training/fingerprint_adapting_test_dataset
+./fingerprint_training/processed_fingerprints
+./fingerprint_training/DB2_B
+./fingerprint_training/fingerprint_adapting_dataset
+microservice/fingerprint_training
+microservice_2/fingerprint_training
