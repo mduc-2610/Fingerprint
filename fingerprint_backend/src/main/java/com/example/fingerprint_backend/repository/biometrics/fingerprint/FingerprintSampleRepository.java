@@ -18,6 +18,7 @@ public interface FingerprintSampleRepository extends JpaRepository<FingerprintSa
     int countByFingerprintSegmentationModel(FingerprintSegmentationModel model);
 
     List<FingerprintSample> findByEmployeeIdAndActiveTrue(String employeeId);
+    List<FingerprintSample> findByEmployeeIdAndActiveFalse(String employeeId);
 
     int countByEmployeeIdAndActiveTrue(String employeeId);
 

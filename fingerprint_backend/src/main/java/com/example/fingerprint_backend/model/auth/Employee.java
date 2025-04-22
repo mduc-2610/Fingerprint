@@ -24,6 +24,7 @@ public class Employee extends User {
 
     public Employee(String id, String fullName, String phoneNumber, String photo, String address, @Nullable String username, @Nullable String email, @Nullable String password) {
         super(id, fullName, phoneNumber, photo, address, username, email, password);
+        this.maxNumberSamples = 5;
     }
 
     public Employee(String id, String fullName, String phoneNumber, String photo, String address, int maxNumberSamples) {

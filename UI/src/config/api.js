@@ -51,6 +51,15 @@ export const apiService = {
     ).then((response) => response.json());
   },
 
+  grantAccessForAllArea(employeeId, areaId) {
+    return fetch(
+      `${BASE_URL}/access/grantAllAreas?employeeId=${employeeId}&areaId=${areaId}`,
+      {
+        method: "POST",
+      }
+    ).then((response) => response.json());
+  },
+
   revokeAccess(accessId) {
     return fetch(`${BASE_URL}/access/revoke/${accessId}`, {
       method: "DELETE",
@@ -94,6 +103,18 @@ export const apiService = {
   disableAllFingerprints(employeeId) {
     return fetch(`${BASE_URL}/fingerprint-sample/disable-all/${employeeId}`, {
       method: "PUT",
+    }).then((response) => response.json());
+  },
+
+  enableAllFingerprints(employeeId) {
+    return fetch(`${BASE_URL}/fingerprint-sample/enable-all/${employeeId}`, {
+      method: "PUT",
+    }).then((response) => response.json());
+  },
+
+  deleteAllFingerprints(employeeId) {
+    return fetch(`${BASE_URL}/fingerprint-sample/delete-all/${employeeId}`, {
+      method: "DELETE",
     }).then((response) => response.json());
   },
 

@@ -2,15 +2,19 @@ package com.example.fingerprint_backend.service;
 
 import com.example.fingerprint_backend.model.access.AccessLog;
 import com.example.fingerprint_backend.model.access.Area;
+import com.example.fingerprint_backend.model.access.AreaAccess;
 import com.example.fingerprint_backend.model.auth.Employee;
 import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintSegmentationModel;
 import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintRecognitionModel;
+import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintSample;
 import com.example.fingerprint_backend.model.biometrics.recognition.Recognition;
 import com.example.fingerprint_backend.model.biometrics.recognition.RecognitionResult;
 import com.example.fingerprint_backend.repository.access.AccessLogRepository;
+import com.example.fingerprint_backend.repository.access.AreaAccessRepository;
 import com.example.fingerprint_backend.repository.auth.EmployeeRepository;
 import com.example.fingerprint_backend.repository.biometrics.fingerprint.FingerprintSegmentationModelRepository;
 import com.example.fingerprint_backend.repository.biometrics.fingerprint.FingerprintRecognitionModelRepository;
+import com.example.fingerprint_backend.repository.biometrics.fingerprint.FingerprintSampleRepository;
 import com.example.fingerprint_backend.repository.biometrics.recognition.RecognitionRepository;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -34,6 +38,7 @@ import org.springframework.web.client.RestTemplate;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -49,6 +54,8 @@ public class FingerprintRecognitionService {
     private final FingerprintRecognitionModelRepository recognitionModelRepository;
     private final RecognitionRepository recognitionRepository;
     private final AccessLogRepository accessLogRepository;
+    private final AreaAccessRepository areaAccessRepository;
+    private final FingerprintSampleRepository fingerprintSampleRepository;
 
     @Autowired
     private final RestTemplate restTemplate;
@@ -106,19 +113,25 @@ public class FingerprintRecognitionService {
 
                 String employeeId = null;
                 double confidence = 0.0;
+                String fingerprintId = null;
 
                 if (similarityNode != null) {
                     JsonNode employeeIdNode = similarityNode.get("employee_id");
                     if (employeeIdNode != null && !employeeIdNode.isNull()) {
                         employeeId = employeeIdNode.asText();
                     }
+                    JsonNode fingerIdNode = similarityNode.get("fingerprint_id");
+                    if (fingerIdNode != null && !fingerIdNode.isNull()) {
+                        fingerprintId = fingerIdNode.asText();
+                    }
 
                     confidence = similarityNode.get("confidence").asDouble();
                 }
 
-                System.out.println("Successfully recognized: employeeId=" + employeeId + ", confidence=" + confidence);
+                System.out.println("Successfully recognized: employeeId=" + employeeId + ", confidence=" + confidence
+                        + " fingerId=" + fingerprintId);
 
-                return new RecognitionResult(employeeId, confidence);
+                return new RecognitionResult(employeeId, confidence, fingerprintId);
             } else {
                 throw new Exception("Failed to recognize fingerprint: " + response.getBody());
             }
@@ -163,6 +176,22 @@ public class FingerprintRecognitionService {
         response.put("authorized", accessLog.isAuthorized());
 
         if (result.isMatch()) {
+            List<AreaAccess> areaAccessList = areaAccessRepository.findByEmployeeId(result.getEmployeeId());
+            var isAccessable = false;
+            for (AreaAccess areaAccess : areaAccessList) {
+                if (areaAccess.getArea().getId().equals(area.getId())) {
+                    isAccessable = true;
+                    break;
+                }
+            }
+            Boolean isActive = false;
+            FingerprintSample fingerprintSample = fingerprintSampleRepository.findById(result.getFingerprintId())
+                    .orElseThrow(() -> new Exception("Fingerprint sample not found with id: " + result.getFingerprintId()));
+            if(fingerprintSample.isActive()){
+                isActive = true;
+            }
+            response.put("active", isActive);
+            response.put("accessable", isAccessable);
             response.put("employeeId", result.getEmployeeId());
 
             Optional<Employee> employee = employeeRepository.findById(result.getEmployeeId());
@@ -171,6 +200,7 @@ public class FingerprintRecognitionService {
             } else {
                 response.put("message", "Employee not found in the database but fingerprint matched");
             }
+
         }
 
         return response;

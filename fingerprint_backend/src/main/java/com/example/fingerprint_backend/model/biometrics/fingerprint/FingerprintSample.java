@@ -31,6 +31,7 @@ public class FingerprintSample {
     private Double quality;
     private Double lastRecognitionConfidence;
 
+    @Builder.Default
     private boolean active = true;
 
     @JsonIgnore

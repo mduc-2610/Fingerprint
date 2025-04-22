@@ -64,7 +64,7 @@ export function RegisterFingerprint() {
 
       // Gọi API đăng ký
       const response = await apiService.registerFingerprint(selectedEmployee.id, formData);
-      
+
       setRegistrationResult(response);
       setError(null);
     } catch (error) {
@@ -76,24 +76,23 @@ export function RegisterFingerprint() {
   return (
     <div>
       <h2 className="text-2xl font-semibold mb-4">Đăng Ký Dấu Vân Tay Mới</h2>
-      
+
       {/* Chọn nhân viên */}
       <div className="mb-4">
         <label className="block mb-2">Chọn Nhân Viên</label>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-h-[300px] overflow-y-auto">
           {employees.map((employee) => (
-            <div 
+            <div
               key={employee.id}
               onClick={() => setSelectedEmployee(employee)}
-              className={`p-4 border rounded-lg cursor-pointer transition-colors ${
-                selectedEmployee?.id === employee.id 
-                  ? 'bg-blue-50 border-blue-500' 
+              className={`p-4 border rounded-lg cursor-pointer transition-colors ${selectedEmployee?.id === employee.id
+                  ? 'bg-blue-50 border-blue-500'
                   : 'hover:bg-gray-50'
-              }`}
+                }`}
             >
               <div className="flex items-center">
-                <img 
-                  src={employee.photoUrl || '/avt.png'} 
+                <img
+                  src={employee.photoUrl || '/avt.png'}
                   alt={employee.fullName}
                   className="w-16 h-16 rounded-full object-cover mr-4"
                 />
@@ -111,8 +110,8 @@ export function RegisterFingerprint() {
       {selectedEmployee && (
         <div className="bg-white border rounded-lg p-4 mb-4">
           <div className="flex items-center">
-            <img 
-              src={selectedEmployee.photoUrl || '/avt.png'} 
+            <img
+              src={selectedEmployee.photoUrl || '/avt.png'}
               alt={selectedEmployee.fullName}
               className="w-20 h-20 rounded-full object-cover mr-6"
             />
@@ -129,7 +128,7 @@ export function RegisterFingerprint() {
       <form onSubmit={handleRegisterFingerprint} className="space-y-4">
         <div>
           <label className="block mb-2">Vị Trí Dấu Vân Tay</label>
-          <select 
+          <select
             value={fingerprintPosition}
             onChange={(e) => setFingerprintPosition(e.target.value)}
             className="w-full p-2 border rounded-md"
@@ -148,8 +147,8 @@ export function RegisterFingerprint() {
 
         <div>
           <label className="block mb-2">Ảnh Dấu Vân Tay</label>
-          <input 
-            type="file" 
+          <input
+            type="file"
             accept=".bmp,.tif,.tiff"
             onChange={handleFileChange}
             className="w-full p-2 border rounded-md"
@@ -159,9 +158,9 @@ export function RegisterFingerprint() {
         {/* Xem trước ảnh */}
         {previewImage && (
           <div className="text-center">
-            <img 
-              src={previewImage} 
-              alt="Ảnh dấu vân tay" 
+            <img
+              src={previewImage}
+              alt="Ảnh dấu vân tay"
               className="max-h-[300px] mx-auto rounded-lg"
             />
           </div>
@@ -174,8 +173,8 @@ export function RegisterFingerprint() {
           </div>
         )}
 
-        <button 
-          type="submit" 
+        <button
+          type="submit"
           className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition"
         >
           Đăng Ký Dấu Vân Tay
@@ -183,19 +182,26 @@ export function RegisterFingerprint() {
       </form>
 
       {/* Kết quả đăng ký */}
-      {registrationResult && (
-        <div className="mt-6 bg-green-50 border border-green-200 p-4 rounded-lg">
-          <h3 className="text-lg font-semibold text-green-700 mb-2">
-            Đăng Ký Thành Công
+      {registrationResult?.error ?
+        <div className="mt-6 bg-red-50 border border-red-200 p-4 rounded-lg">
+          <h3 className="text-lg font-semibold text-red-700 mb-2">
+            Đăng Ký Thất Bại
           </h3>
-          <div className="space-y-2">
-            <p>Nhân Viên: {selectedEmployee.fullName}</p>
-            <p>Vị Trí: {fingerprintPosition.replace('_', ' ')}</p>
-            <p>Chất Lượng: {(registrationResult.quality * 100).toFixed(2)}%</p>
-            <p>Ngày Đăng Ký: {new Date(registrationResult.capturedAt).toLocaleString()}</p>
-          </div>
+          <p>{registrationResult.error}</p>
         </div>
-      )}
+        : (
+          <div className="mt-6 bg-green-50 border border-green-200 p-4 rounded-lg">
+            <h3 className="text-lg font-semibold text-green-700 mb-2">
+              Đăng Ký Thành Công
+            </h3>
+            <div className="space-y-2">
+              <p>Nhân Viên: {selectedEmployee.fullName}</p>
+              <p>Vị Trí: {fingerprintPosition.replace('_', ' ')}</p>
+              <p>Chất Lượng: {(registrationResult.quality * 100).toFixed(2)}%</p>
+              <p>Ngày Đăng Ký: {new Date(registrationResult.capturedAt).toLocaleString()}</p>
+            </div>
+          </div>
+        )}
     </div>
   );
 }

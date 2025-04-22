@@ -46,6 +46,7 @@ public class FingerprintRecognitionController {
                     area,
                     accessType);
 
+
             return ResponseEntity.ok(result);
 
         } catch (Exception e) {

@@ -4,7 +4,6 @@ import com.example.fingerprint_backend.model.auth.Employee;
 import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintSample;
 import com.example.fingerprint_backend.repository.auth.EmployeeRepository;
 import com.example.fingerprint_backend.repository.biometrics.fingerprint.FingerprintSampleRepository;
-import com.example.fingerprint_backend.service.FingerprintManagementService;
 import com.example.fingerprint_backend.service.FingerprintRegistrationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -32,10 +31,6 @@ public class FingerprintSampleController {
     @Autowired
     private EmployeeRepository employeeRepository;
 
-    @Autowired
-    private FingerprintManagementService fingerprintManagementService;
-
-
     @GetMapping
     public List<FingerprintSample> getAllFingerprintSamples() {
         return fingerprintSampleRepository.findAll();
@@ -59,24 +54,33 @@ public class FingerprintSampleController {
         return ResponseEntity.ok(samples);
     }
 
-
     @PostMapping("/register/{employeeId}/single")
     public ResponseEntity<?> registerFingerprint(
             @PathVariable String employeeId,
             @RequestParam("file") MultipartFile file,
             @RequestParam("position") String position,
             @RequestParam("segmentationModelId") String segmentationModelId,
-            @RequestParam("recognitionModelId") String recognitionModelId
-    ) {
+            @RequestParam("recognitionModelId") String recognitionModelId) {
         try {
+
+            Employee employee = employeeRepository.findById(employeeId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "Employee not found with id: " + employeeId));
+
+            List<FingerprintSample> existingSamples = fingerprintSampleRepository.findByEmployeeId(employeeId);
+            if (existingSamples.size() >= employee.getMaxNumberSamples()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST, "Maximum number of samples reached for employee: " + employeeId);
+            }
             FingerprintSample registeredSample = registrationService.registerFingerprint(
                     employeeId, file, position, segmentationModelId, recognitionModelId);
 
             return ResponseEntity.ok(Map.of(
                     "message", "Fingerprint registered successfully",
                     "employeeId", employeeId,
-                    "sample", registeredSample
-            ));
+                    "quality", registeredSample.getQuality(),
+                    "capturedAt", registeredSample.getCapturedAt(),
+                    "fingerprintId", registeredSample.getId()));
         } catch (Exception e) {
             return ResponseEntity
                     .status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -106,21 +110,17 @@ public class FingerprintSampleController {
     }
 
     @PutMapping("/disable/{fingerprintId}")
-    public ResponseEntity<Map<String, Object>> disableFingerprint(@PathVariable String fingerprintId) throws IOException {
+    public ResponseEntity<Map<String, Object>> disableFingerprint(@PathVariable String fingerprintId)
+            throws IOException {
         Optional<FingerprintSample> fingerprintOptional = fingerprintSampleRepository.findById(fingerprintId);
 
         if (fingerprintOptional.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Fingerprint sample not found with id: " + fingerprintId);
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Fingerprint sample not found with id: " + fingerprintId);
         }
 
         FingerprintSample fingerprint = fingerprintOptional.get();
         String employeeId = fingerprint.getEmployee().getId();
-        try {
-            fingerprintManagementService.moveFileToDisabledDirectory(fingerprint.getImage(), employeeId);
-        } catch (IOException e) {
-            throw new ResponseStatusException(
-                    HttpStatus.INTERNAL_SERVER_ERROR, "Error while moving files to disabled directory: " + e.getMessage());
-        }
 
         fingerprint.setActive(false);
         fingerprintSampleRepository.save(fingerprint);
@@ -134,25 +134,19 @@ public class FingerprintSampleController {
         return ResponseEntity.ok(response);
     }
 
-
     @PutMapping("/enable/{fingerprintId}")
-    public ResponseEntity<Map<String, Object>> enableFingerprint(@PathVariable String fingerprintId) throws IOException {
+    public ResponseEntity<Map<String, Object>> enableFingerprint(@PathVariable String fingerprintId)
+            throws IOException {
         Optional<FingerprintSample> fingerprintOptional = fingerprintSampleRepository.findById(fingerprintId);
 
         if (fingerprintOptional.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Fingerprint sample not found with id: " + fingerprintId);
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Fingerprint sample not found with id: " + fingerprintId);
         }
 
         FingerprintSample fingerprint = fingerprintOptional.get();
         Employee employee = fingerprint.getEmployee();
         String employeeId = employee.getId();
-
-        try {
-            fingerprintManagementService.moveFileToAdaptingDirectory(fingerprint.getImage(), employeeId);
-        } catch (IOException e) {
-            throw new ResponseStatusException(
-                    HttpStatus.INTERNAL_SERVER_ERROR, "Error while moving files to disabled directory: " + e.getMessage());
-        }
 
         fingerprint.setActive(true);
         fingerprintSampleRepository.save(fingerprint);
@@ -166,20 +160,12 @@ public class FingerprintSampleController {
         return ResponseEntity.ok(response);
     }
 
-
     @PutMapping("/disable-all/{employeeId}")
     public ResponseEntity<Map<String, Object>> disableAllFingerprints(@PathVariable String employeeId) {
-        Employee employee = employeeRepository.findById(employeeId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Employee not found with id: " + employeeId));
-
         List<FingerprintSample> activeSamples = fingerprintSampleRepository.findByEmployeeIdAndActiveTrue(employeeId);
 
-        try {
-            fingerprintManagementService.moveAllActiveFilesToDisabledDirectory(activeSamples, employeeId);
-        } catch (IOException e) {
-            throw new ResponseStatusException(
-                    HttpStatus.INTERNAL_SERVER_ERROR, "Error while moving files to disabled directory: " + e.getMessage());
+        for (FingerprintSample sample : activeSamples) {
+            fingerprintSampleRepository.updateActiveStatus(sample.getId(), false);
         }
 
         int updatedCount = fingerprintSampleRepository.deactivateAllForEmployee(employeeId);
@@ -192,6 +178,46 @@ public class FingerprintSampleController {
         return ResponseEntity.ok(response);
     }
 
+    @PutMapping("/enable-all/{employeeId}")
+    public ResponseEntity<Map<String, Object>> enableAllFingerprints(@PathVariable String employeeId) {
+        // Lấy tất cả mẫu chưa active của nhân viên
+        List<FingerprintSample> inactiveSamples = fingerprintSampleRepository
+                .findByEmployeeIdAndActiveFalse(employeeId);
+
+        // Đếm số mẫu được cập nhật
+        int updatedCount = 0;
+        for (FingerprintSample sample : inactiveSamples) {
+            fingerprintSampleRepository.updateActiveStatus(sample.getId(), true);
+            updatedCount++;
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "All fingerprints enabled successfully");
+        response.put("employeeId", employeeId);
+        response.put("enabledCount", updatedCount);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @DeleteMapping("/delete-all/{employeeId}")
+    public ResponseEntity<Map<String, Object>> deleteAllFingerprints(@PathVariable String employeeId) {
+        List<FingerprintSample> samples = fingerprintSampleRepository.findByEmployeeId(employeeId);
+
+        if (samples.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND, "No fingerprint samples found for employee id: " + employeeId);
+        }
+
+        for (FingerprintSample sample : samples) {
+            fingerprintSampleRepository.delete(sample);
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("message", "All fingerprints deleted successfully");
+        response.put("employeeId", employeeId);
+
+        return ResponseEntity.ok(response);
+    }
 
     @DeleteMapping("/{fingerprintId}")
     public ResponseEntity<Map<String, Object>> deleteFingerprintSample(@PathVariable String fingerprintId) {
@@ -206,13 +232,6 @@ public class FingerprintSampleController {
         String employeeId = fingerprint.getEmployee().getId();
         String employeeName = fingerprint.getEmployee().getFullName();
 
-        try {
-            fingerprintManagementService.deleteFingerprintImage(fingerprint.getImage(), employeeId);
-        } catch (IOException e) {
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                    "Failed to delete fingerprint image file: " + e.getMessage());
-        }
-
         fingerprintSampleRepository.deleteById(fingerprintId);
 
         Map<String, Object> response = new HashMap<>();
@@ -223,7 +242,6 @@ public class FingerprintSampleController {
 
         return ResponseEntity.ok(response);
     }
-
 
     @PutMapping("/set-max-samples/{employeeId}")
     public ResponseEntity<Map<String, Object>> setMaxSamples(
@@ -238,6 +256,12 @@ public class FingerprintSampleController {
         Employee employee = employeeRepository.findById(employeeId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND, "Employee not found with id: " + employeeId));
+
+        List<FingerprintSample> samples = fingerprintSampleRepository.findByEmployeeId(employeeId);
+        if (samples.size() > maxSamples) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "Cannot set max samples less than current samples count");
+        }
 
         employee.setMaxNumberSamples(maxSamples);
         employeeRepository.save(employee);

@@ -9,6 +9,7 @@ public class RecognitionResult {
     private final String employeeId;
     private final double confidence;
     private static final double MATCH_THRESHOLD = 0.7;
+    private final String fingerprintId;
 
     public String getEmployeeId() {
         return employeeId;
