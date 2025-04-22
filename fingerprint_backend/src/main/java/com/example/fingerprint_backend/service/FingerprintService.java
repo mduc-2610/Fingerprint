@@ -2,7 +2,6 @@ package com.example.fingerprint_backend.service;
 
 import com.example.fingerprint_backend.model.access.AccessLog;
 import com.example.fingerprint_backend.model.access.Area;
-import com.example.fingerprint_backend.model.access.CameraImage;
 import com.example.fingerprint_backend.model.auth.Employee;
 import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintSample;
 import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintSegmentationModel;
@@ -19,36 +18,43 @@ import com.example.fingerprint_backend.repository.biometrics.recognition.Recogni
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class FingerprintService {
-    private static final String VENV_PYTHON = "fingerprint_training/env/Scripts/python.exe"; // Windows
-    private static final String SCRIPT_DIR = "fingerprint_training/reports";
-    private static final String PYTHON_SCRIPT_PATH = "fingerprint_training/fingerprint_recognition.py";
-    private static final String DATASET_BASE_PATH = "fingerprint_training/fingerprint_adapting_dataset/";
-    private static final String RECOGNITION_RESULT_FILE = "recognition_result.json";
-
+    // URL của Fingerprint API
+    @Value("${fingerprint.api.url:http://localhost:5000}")
+    private String fingerprintApiUrl;
+    
     private final EmployeeRepository employeeRepository;
     private final FingerprintSampleRepository fingerprintSampleRepository;
     private final FingerprintSegmentationModelRepository segmentationModelRepository;
     private final FingerprintRecognitionModelRepository recognitionModelRepository;
     private final RecognitionRepository recognitionRepository;
     private final AccessLogRepository accessLogRepository;
+
+    @Autowired
+    private final RestTemplate restTemplate;
 
     @Transactional
     public FingerprintSample registerFingerprint(
@@ -73,29 +79,13 @@ public class FingerprintService {
         String segmentationModelPath = segmentationModel.getPathName();
         String recognitionModelPath = recognitionModel.getPathName();
 
-        String employeeDir = DATASET_BASE_PATH + "/" + employeeId;
-        Path employeePath = Paths.get(employeeDir);
-
-        try {
-            Files.createDirectories(employeePath);
-        } catch (IOException e) {
-            throw new Exception("Failed to create directory for employee " + employeeId, e);
-        }
-
-        String originalFilename = file.getOriginalFilename();
-        String extension = originalFilename != null ?
-                originalFilename.substring(originalFilename.lastIndexOf(".")) : ".bmp";
-
-        String filename = employeeId + "_" + position + extension;
-        Path filePath = Paths.get(employeeDir, filename);
-
         try {
             byte[] fileBytes = file.getBytes();
-            Files.write(filePath, fileBytes);
-
+            
+            // Lưu mẫu vân tay vào cơ sở dữ liệu
             FingerprintSample sample = FingerprintSample.builder()
                     .employee(employee)
-                    .image(filename)
+                    .image(file.getOriginalFilename())
                     .imageData(fileBytes)
                     .position(position)
                     .capturedAt(LocalDateTime.now())
@@ -104,15 +94,40 @@ public class FingerprintService {
 
             FingerprintSample savedSample = fingerprintSampleRepository.save(sample);
 
-            updateFingerprintModel(segmentationModelPath, recognitionModelPath);
+            // Gửi yêu cầu đăng ký vân tay đến API
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
 
-            return savedSample;
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+            body.add("file", new ByteArrayResource(fileBytes) {
+                @Override
+                public String getFilename() {
+                    return file.getOriginalFilename();
+                }
+            });
+            body.add("employee_id", employeeId);
+            body.add("position", position);
+            body.add("segmentation_model_path", segmentationModelPath);
+            body.add("recognition_model_path", recognitionModelPath);
+
+            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+            
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    fingerprintApiUrl + "/api/register", 
+                    requestEntity, 
+                    String.class
+            );
+
+            if (response.getStatusCode().is2xxSuccessful()) {
+                return savedSample;
+            } else {
+                throw new Exception("Failed to register fingerprint: " + response.getBody());
+            }
 
         } catch (IOException e) {
             throw new Exception("Failed to save fingerprint image: " + e.getMessage(), e);
         }
     }
-
 
     @Transactional
     public List<FingerprintSample> registerFingerprints(
@@ -137,36 +152,23 @@ public class FingerprintService {
         String segmentationModelPath = segmentationModel.getPathName();
         String recognitionModelPath = recognitionModel.getPathName();
 
-        String employeeDir = DATASET_BASE_PATH + "/" + employeeId;
-        Path employeePath = Paths.get(employeeDir);
-
-        try {
-            Files.createDirectories(employeePath);
-        } catch (IOException e) {
-            throw new Exception("Failed to create directory for employee " + employeeId, e);
-        }
-
         List<FingerprintSample> samples = new ArrayList<>();
 
-        for (int i = 0; i < files.size(); i++) {
-            MultipartFile file = files.get(i);
-            String position = positions.get(i);
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
 
-            String originalFilename = file.getOriginalFilename();
-            String extension = originalFilename != null ?
-                    originalFilename.substring(originalFilename.lastIndexOf(".")) : ".bmp";
-
-            String filename = employeeId + "_" + position + extension;
-            Path filePath = Paths.get(employeeDir, filename);
-            String relativePath = employeeId + "/" + filename;
-
-            try {
+            // Lưu và đăng ký từng mẫu vân tay
+            for (int i = 0; i < files.size(); i++) {
+                MultipartFile file = files.get(i);
+                String position = positions.get(i);
                 byte[] fileBytes = file.getBytes();
-                Files.write(filePath, fileBytes);
 
+                // Lưu mẫu vào cơ sở dữ liệu
                 FingerprintSample sample = FingerprintSample.builder()
                         .employee(employee)
-                        .image(filename)
+                        .image(file.getOriginalFilename())
                         .imageData(fileBytes)
                         .position(position)
                         .capturedAt(LocalDateTime.now())
@@ -175,16 +177,38 @@ public class FingerprintService {
 
                 samples.add(fingerprintSampleRepository.save(sample));
 
-            } catch (IOException e) {
-                throw new Exception("Failed to save fingerprint image: " + e.getMessage(), e);
+                // Thêm file vào yêu cầu API
+                body.add("file", new ByteArrayResource(fileBytes) {
+                    @Override
+                    public String getFilename() {
+                        return file.getOriginalFilename();
+                    }
+                });
+                body.add("position", position);
             }
+            
+            // Thêm các thông tin khác vào yêu cầu API
+            body.add("employee_id", employeeId);
+            body.add("segmentation_model_path", segmentationModelPath);
+            body.add("recognition_model_path", recognitionModelPath);
+
+            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+            
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    fingerprintApiUrl + "/api/register", 
+                    requestEntity, 
+                    String.class
+            );
+
+            if (!response.getStatusCode().is2xxSuccessful()) {
+                throw new Exception("Failed to register fingerprints: " + response.getBody());
+            }
+
+            return samples;
+
+        } catch (IOException e) {
+            throw new Exception("Failed to save fingerprint images: " + e.getMessage(), e);
         }
-
-        employeeRepository.save(employee);
-
-        updateFingerprintModel(segmentationModelPath, recognitionModelPath);
-
-        return samples;
     }
 
     public RecognitionResult recognizeFingerprint(
@@ -203,34 +227,64 @@ public class FingerprintService {
         String segmentationModelPath = segmentationModel.getPathName();
         String recognitionModelPath = recognitionModel.getPathName();
 
-        String tempFilePath = "temp_" + UUID.randomUUID().toString() + ".bmp";
-        Path tempPath = Paths.get(tempFilePath);
-
         try {
-            Files.write(tempPath, fingerprintImage.getBytes());
-            System.out.println("Fingerprint saved temporarily to: " + tempPath.toAbsolutePath());
+            byte[] fileBytes = fingerprintImage.getBytes();
+            
+            // Chuẩn bị yêu cầu HTTP
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+            body.add("file", new ByteArrayResource(fileBytes) {
+                @Override
+                public String getFilename() {
+                    return fingerprintImage.getOriginalFilename();
+                }
+            });
+            body.add("segmentation_model_path", segmentationModelPath);
+            body.add("recognition_model_path", recognitionModelPath);
+
+            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+            
+            // Gửi yêu cầu đến API
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    fingerprintApiUrl + "/api/recognize", 
+                    requestEntity, 
+                    String.class
+            );
+
+            if (response.getStatusCode().is2xxSuccessful()) {
+                ObjectMapper mapper = new ObjectMapper();
+                JsonNode rootNode = mapper.readTree(response.getBody());
+                
+                if (rootNode.has("error")) {
+                    throw new Exception("Recognition error: " + rootNode.get("error").asText());
+                }
+                
+                JsonNode similarityNode = rootNode.get("similarity");
+                
+                String employeeId = null;
+                double confidence = 0.0;
+                
+                if (similarityNode != null) {
+                    JsonNode employeeIdNode = similarityNode.get("employee_id");
+                    if (employeeIdNode != null && !employeeIdNode.isNull()) {
+                        employeeId = employeeIdNode.asText();
+                    }
+                    
+                    confidence = similarityNode.get("confidence").asDouble();
+                }
+                
+                System.out.println("Successfully recognized: employeeId=" + employeeId + ", confidence=" + confidence);
+                
+                return new RecognitionResult(employeeId, confidence);
+            } else {
+                throw new Exception("Failed to recognize fingerprint: " + response.getBody());
+            }
         } catch (IOException e) {
-            System.err.println("Failed to save temporary fingerprint image: " + e.getMessage());
-            throw new Exception("Failed to save temporary fingerprint image", e);
-        }
-
-        try {
-            System.out.println("Calling recognition script for file: " + tempFilePath);
-            executeRecognitionScript(tempFilePath, segmentationModelPath, recognitionModelPath);
-
-            return readRecognitionResultFromFile();
-
-        } catch (Exception e) {
-            System.err.println("Error in fingerprint recognition process: " + e.getClass().getName() + ": " + e.getMessage());
+            System.err.println("Error in fingerprint recognition process: " + e.getMessage());
             e.printStackTrace();
             throw new Exception("Failed to recognize fingerprint: " + e.getMessage(), e);
-        } finally {
-            try {
-                boolean deleted = Files.deleteIfExists(tempPath);
-                System.out.println("Temporary file deleted: " + deleted);
-            } catch (IOException e) {
-                System.err.println("Failed to delete temporary file: " + e.getMessage());
-            }
         }
     }
 
@@ -309,87 +363,43 @@ public class FingerprintService {
             return false;
         }
 
-        return true;
+        return true; // Đây là logic đơn giản, có thể thay thế bằng logic phức tạp hơn theo nhu cầu
     }
 
     private void updateFingerprintModel(String segmentationModelPath, String recognitionModelPath)
-            throws IOException, InterruptedException {
-
-        ProcessBuilder processBuilder = new ProcessBuilder(
-                VENV_PYTHON,
-                PYTHON_SCRIPT_PATH,
-                "--update-model",
-                "--seg-path-name", segmentationModelPath,
-                "--rec-path-name", recognitionModelPath
-        );
-
-        Process process = processBuilder.start();
-        String errorOutput = new String(process.getErrorStream().readAllBytes());
-
-        int exitCode = process.waitFor();
-
-        if (exitCode != 0) {
-            throw new IOException("Python script execution failed with exit code: "
-                    + exitCode + ", Error: " + errorOutput);
-        }
-    }
-
-    private String executeRecognitionScript(String imagePath, String segmentationModelPath, String recognitionModelPath)
-            throws IOException, InterruptedException {
-        ProcessBuilder processBuilder = new ProcessBuilder(
-                VENV_PYTHON,
-                PYTHON_SCRIPT_PATH,
-                "--recognize",
-                imagePath,
-                "--seg-path-name", segmentationModelPath,
-                "--rec-path-name", recognitionModelPath
-        );
-
-        Process process = processBuilder.start();
-
-        String output = new String(process.getInputStream().readAllBytes());
-        int exitCode = process.waitFor();
-
-        if (exitCode != 0) {
-            String errorOutput = new String(process.getErrorStream().readAllBytes());
-            throw new IOException("Python script execution failed: " + errorOutput);
-        }
-
-        return output;
-    }
-
-    private RecognitionResult readRecognitionResultFromFile() throws IOException {
-        File resultFile = Paths.get(SCRIPT_DIR, RECOGNITION_RESULT_FILE).toFile();
-
-        if (!resultFile.exists()) {
-            throw new IOException("Recognition result file not found");
-        }
-
+            throws IOException {
+        // Chuẩn bị dữ liệu để gọi API
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        
+        // Tạo body request
         ObjectMapper mapper = new ObjectMapper();
-        JsonNode rootNode = mapper.readTree(resultFile);
-
-        if (rootNode.has("error")) {
-            throw new IOException("Recognition error: " + rootNode.get("error").asText());
-        }
-
-        JsonNode similarityNode = rootNode.get("similarity");
-
-        String employeeId = null;
-        double confidence = 0.0;
-
-        if (similarityNode != null) {
-            JsonNode employeeIdNode = similarityNode.get("employee_id");
-            if (employeeIdNode != null && !employeeIdNode.isNull()) {
-                employeeId = employeeIdNode.asText();
+        String requestJson = mapper.writeValueAsString(
+            mapper.createObjectNode()
+                .put("segmentation_model_path", segmentationModelPath)
+                .put("recognition_model_path", recognitionModelPath)
+        );
+        
+        HttpEntity<String> requestEntity = new HttpEntity<>(requestJson, headers);
+        
+        // Gọi API và xử lý kết quả
+        ResponseEntity<String> response = restTemplate.postForEntity(
+                fingerprintApiUrl + "/api/update-model", 
+                requestEntity, 
+                String.class
+        );
+        
+        if (!response.getStatusCode().is2xxSuccessful()) {
+            JsonNode rootNode = mapper.readTree(response.getBody());
+            String errorMessage = "Unknown error";
+            
+            if (rootNode.has("message")) {
+                errorMessage = rootNode.get("message").asText();
+            } else if (rootNode.has("error")) {
+                errorMessage = rootNode.get("error").asText();
             }
-
-            confidence = similarityNode.get("confidence").asDouble();
+            
+            throw new IOException("Failed to update fingerprint model: " + errorMessage);
         }
-
-        System.out.println("Successfully parsed result from file: " +
-                "employeeId=" + employeeId +
-                ", confidence=" + confidence);
-
-        return new RecognitionResult(employeeId, confidence);
     }
 }
