@@ -79,6 +79,8 @@ public class FingerprintRegistrationService {
                     .imageData(fileBytes)
                     .position(position)
                     .capturedAt(LocalDateTime.now())
+                    .fingerprintSegmentationModel(segmentationModel)
+                    .fingerprintRecognitionModel(recognitionModel)
                     .quality(1.0)
                     .active(true)
                     .build();

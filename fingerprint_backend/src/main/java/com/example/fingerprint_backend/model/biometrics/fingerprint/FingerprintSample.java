@@ -34,7 +34,6 @@ public class FingerprintSample {
     @Builder.Default
     private boolean active = true;
 
-    @JsonIgnore
     @ManyToOne(cascade = CascadeType.MERGE)
     @JoinColumn(name = "employee_id")
     private Employee employee;

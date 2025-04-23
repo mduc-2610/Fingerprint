@@ -42,6 +42,9 @@ export function ModelList() {
             if (type === 'recognition') {
                 const itemsResponse = await apiService.getRecognitionsForModel(model.id);
                 setItems(itemsResponse);
+            } else if (type === 'segmentation') {
+                const itemsResponse = await apiService.getSegmentationForModel(model.id);
+                setItems(itemsResponse);
             }
         } catch (error) {
             setError('Lỗi lấy chi tiết mô hình');
@@ -97,9 +100,9 @@ export function ModelList() {
                                     <p><strong>Tổng Lượt Sử Dụng:</strong> {modelDetails.totalUsage || 'Chưa có'}</p>
                                     <p>
                                         <strong>Độ Chính Xác Trung Bình:</strong>
-                                        {modelDetails.averageConfidence
-                                            ? `${(modelDetails.averageConfidence * 100).toFixed(2)}%`
-                                            : 'Chưa có'}
+                                        {modelDetails.averageConfidence !== null
+                                            && `${(modelDetails.averageConfidence * 100).toFixed(2)}%`
+                                        }
                                     </p>
                                 </div>
                             </div>
@@ -119,14 +122,14 @@ export function ModelList() {
                                         <tr>
                                             {modelType === 'segmentation' ? (
                                                 <>
-                                                    <th className="p-2 border">Mã Nhân Viên</th>
+                                                    <th className="p-2 border">Tên nhân viên</th>
                                                     <th className="p-2 border">Vị Trí</th>
                                                     <th className="p-2 border">Chất Lượng</th>
                                                     <th className="p-2 border">Ngày Đăng Ký</th>
                                                 </>
                                             ) : (
                                                 <>
-                                                    <th className="p-2 border">Mã Nhân Viên</th>
+                                                    <th className="p-2 border">Tên nhân viên</th>
                                                     <th className="p-2 border">Thời Gian</th>
                                                     <th className="p-2 border">Độ Chính Xác</th>
                                                     <th className="p-2 border">Khu Vực</th>
@@ -140,20 +143,20 @@ export function ModelList() {
                                                 <tr key={index} className="border-b hover:bg-gray-50">
                                                     {modelType === 'segmentation' ? (
                                                         <>
-                                                            <td className="p-2 border">{item.id || 'N/A'}</td>
+                                                            <td className="p-2 border">{item?.employee?.fullName || 'N/A'}</td>
                                                             <td className="p-2 border">{item.position || 'N/A'}</td>
                                                             <td className="p-2 border">
-                                                                {item.confidence ? `${(item.confidence * 100).toFixed(2)}%` : 'N/A'}
+                                                                {item.quality ? `${(item.quality * 100).toFixed(2)}%` : 'N/A'}
                                                             </td>
                                                             <td className="p-2 border">
-                                                                {item.timestamp
-                                                                    ? new Date(item.timestamp).toLocaleString()
+                                                                {item.capturedAt
+                                                                    ? new Date(item.capturedAt).toLocaleString()
                                                                     : 'N/A'}
                                                             </td>
                                                         </>
                                                     ) : (
                                                         <>
-                                                            <td className="p-2 border">{item.id || 'N/A'}</td>
+                                                            <td className="p-2 border">{item?.employee?.fullName || 'N/A'}</td>
                                                             <td className="p-2 border">
                                                                 {item.timestamp
                                                                     ? new Date(item.timestamp).toLocaleString()

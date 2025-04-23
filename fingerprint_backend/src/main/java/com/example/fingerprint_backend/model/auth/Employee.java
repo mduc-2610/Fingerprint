@@ -4,6 +4,7 @@ import com.example.fingerprint_backend.model.base.User;
 import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintSample;
 import com.example.fingerprint_backend.model.biometrics.recognition.Recognition;
 import com.example.fingerprint_backend.model.access.AccessLog;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.annotation.Nullable;
 import lombok.Data;
@@ -32,12 +33,15 @@ public class Employee extends User {
         this.maxNumberSamples = maxNumberSamples;
     }
 
+    @JsonIgnore
     @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<AccessLog> accessLogs;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<Recognition> recognitions;
 
+    @JsonIgnore
     @OneToMany(mappedBy = "employee", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<FingerprintSample> fingerprintSamples;
 

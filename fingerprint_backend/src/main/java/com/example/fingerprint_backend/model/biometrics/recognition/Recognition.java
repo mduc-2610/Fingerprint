@@ -45,7 +45,6 @@ public class Recognition {
     @JoinColumn(name = "access_log_id")
     private AccessLog accessLog;
 
-    @JsonIgnore
     @ManyToOne
     @JoinColumn(name = "employee_id")
     private Employee employee;

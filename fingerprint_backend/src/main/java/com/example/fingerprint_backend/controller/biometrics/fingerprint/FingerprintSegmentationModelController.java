@@ -29,6 +29,7 @@ public class FingerprintSegmentationModelController
 
     @Override
     protected float calculateAverageConfidence(Model model) {
-        return 0;
+        return fingerprintSampleRepository.findAverageQualityByFingerprintSegmentationModelId(
+                ((FingerprintSegmentationModel) model).getId());
     }
 }
