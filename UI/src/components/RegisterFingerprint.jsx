@@ -86,8 +86,8 @@ export function RegisterFingerprint() {
               key={employee.id}
               onClick={() => setSelectedEmployee(employee)}
               className={`p-4 border rounded-lg cursor-pointer transition-colors ${selectedEmployee?.id === employee.id
-                  ? 'bg-blue-50 border-blue-500'
-                  : 'hover:bg-gray-50'
+                ? 'bg-blue-50 border-blue-500'
+                : 'hover:bg-gray-50'
                 }`}
             >
               <div className="flex items-center">
@@ -182,26 +182,27 @@ export function RegisterFingerprint() {
       </form>
 
       {/* Kết quả đăng ký */}
-      {registrationResult?.error ?
+      {registrationResult?.error ? (
         <div className="mt-6 bg-red-50 border border-red-200 p-4 rounded-lg">
           <h3 className="text-lg font-semibold text-red-700 mb-2">
             Đăng Ký Thất Bại
           </h3>
           <p>{registrationResult.error}</p>
         </div>
-        : (
-          <div className="mt-6 bg-green-50 border border-green-200 p-4 rounded-lg">
-            <h3 className="text-lg font-semibold text-green-700 mb-2">
-              Đăng Ký Thành Công
-            </h3>
-            <div className="space-y-2">
-              <p>Nhân Viên: {selectedEmployee.fullName}</p>
-              <p>Vị Trí: {fingerprintPosition.replace('_', ' ')}</p>
-              <p>Chất Lượng: {(registrationResult.quality * 100).toFixed(2)}%</p>
-              <p>Ngày Đăng Ký: {new Date(registrationResult.capturedAt).toLocaleString()}</p>
-            </div>
+      ) : registrationResult ? (
+        <div className="mt-6 bg-green-50 border border-green-200 p-4 rounded-lg">
+          <h3 className="text-lg font-semibold text-green-700 mb-2">
+            Đăng Ký Thành Công
+          </h3>
+          <div className="space-y-2">
+            <p>Nhân Viên: {selectedEmployee.fullName}</p>
+            <p>Vị Trí: {fingerprintPosition.replace('_', ' ')}</p>
+            <p>Chất Lượng: {(registrationResult.quality * 100).toFixed(2)}%</p>
+            <p>Ngày Đăng Ký: {new Date(registrationResult.capturedAt).toLocaleString()}</p>
           </div>
-        )}
+        </div>
+      ) : null}
+
     </div>
   );
 }
