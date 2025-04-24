@@ -8,8 +8,8 @@ import lombok.Data;
 public class RecognitionResult {
     private final String employeeId;
     private final double confidence;
-    private static final double MATCH_THRESHOLD = 0.7;
     private final String fingerprintId;
+    private final Boolean match;
 
     public String getEmployeeId() {
         return employeeId;
@@ -17,9 +17,5 @@ public class RecognitionResult {
 
     public double getConfidence() {
         return confidence;
-    }
-
-    public boolean isMatch() {
-        return employeeId != null && confidence >= MATCH_THRESHOLD;
     }
 }

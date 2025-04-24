@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../config/api';
 
-export function RecognizeFingerprint() {
+export function RecognizeFingerprint({
+    segmentationModelId,
+    recognitionModelId,
+}) {
     const [areas, setAreas] = useState([]);
     const [fingerprintFile, setFingerprintFile] = useState(null);
     const [previewImage, setPreviewImage] = useState(null);
@@ -27,46 +30,70 @@ export function RecognizeFingerprint() {
     // Xử lý tải ảnh xem trước
     const handleFileChange = (e) => {
         const file = e.target.files[0];
-        setFingerprintFile(file);
+        if (!file) return;
 
-        // Tạo ảnh xem trước
+        setFingerprintFile(file);
+        setError(null);
+        setRecognitionResult(null);
+        setNotification("");
+
         const reader = new FileReader();
+
         reader.onloadend = () => {
             setPreviewImage(reader.result);
         };
-        reader.readAsDataURL(file);
+
+        reader.onerror = () => {
+            setError('Không thể đọc file ảnh. Vui lòng thử lại.');
+            setPreviewImage(null);
+        };
+
+        try {
+            reader.readAsDataURL(file);
+        } catch {
+            setError('Định dạng file không hợp lệ.');
+            setPreviewImage(null);
+        }
     };
+
 
     // Xử lý nhận dạng dấu vân tay
     const handleRecognizeFingerprint = async (e) => {
         e.preventDefault();
+        setError(null);
+        setRecognitionResult(null);
+        setNotification("");
 
-        // Kiểm tra đầu vào
         if (!fingerprintFile) {
-            setError('Vui lòng chọn ảnh dấu vân tay');
-            return;
+            return setError('Vui lòng chọn ảnh dấu vân tay');
         }
+
         if (!selectedArea) {
-            setError('Vui lòng chọn khu vực');
-            return;
+            return setError('Vui lòng chọn khu vực');
+        }
+
+        if (!segmentationModelId || !recognitionModelId) {
+            return setError('Vui lòng chọn mô hình nhận dạng');
         }
 
         try {
-            // Tạo form data
             const formData = new FormData();
             formData.append('file', fingerprintFile);
             formData.append('areaId', selectedArea);
 
-            // Gọi API nhận dạng
-            const response = await apiService.recognizeFingerprint(formData);
+            const response = await apiService.recognizeFingerprint(
+                formData,
+                segmentationModelId,
+                recognitionModelId
+            );
 
             setRecognitionResult(response);
-            setError(null);
-        } catch (error) {
-            setError('Lỗi nhận dạng dấu vân tay');
-            setRecognitionResult(null);
+        } catch (err) {
+            const apiError = err?.response?.data?.message || err.message || 'Lỗi nhận dạng dấu vân tay';
+            setError(apiError);
         }
     };
+
 
     useEffect(() => {
         if (recognitionResult) {

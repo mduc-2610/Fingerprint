@@ -114,6 +114,7 @@ public class FingerprintRecognitionService {
                 String employeeId = null;
                 double confidence = 0.0;
                 String fingerprintId = null;
+                Boolean match = false;
 
                 if (similarityNode != null) {
                     JsonNode employeeIdNode = similarityNode.get("employee_id");
@@ -121,6 +122,8 @@ public class FingerprintRecognitionService {
                         employeeId = employeeIdNode.asText();
                     }
                     JsonNode fingerIdNode = similarityNode.get("fingerprint_id");
+
+                    match = similarityNode.get("match").asBoolean();
                     if (fingerIdNode != null && !fingerIdNode.isNull()) {
                         fingerprintId = fingerIdNode.asText();
                     }
@@ -131,7 +134,7 @@ public class FingerprintRecognitionService {
                 System.out.println("Successfully recognized: employeeId=" + employeeId + ", confidence=" + confidence
                         + " fingerId=" + fingerprintId);
 
-                return new RecognitionResult(employeeId, confidence, fingerprintId);
+                return new RecognitionResult(employeeId, confidence, fingerprintId, match);
             } else {
                 throw new Exception("Failed to recognize fingerprint: " + response.getBody());
             }
@@ -165,17 +168,17 @@ public class FingerprintRecognitionService {
                 result.getEmployeeId(),
                 area,
                 accessType,
-                result.isMatch(),
+                result.getMatch(),
                 result.getConfidence(),
                 segmentationModelId,
                 recognitionModelId);
 
-        response.put("matched", result.isMatch());
+        response.put("matched", result.getMatch());
         response.put("confidence", result.getConfidence());
         response.put("accessLog", accessLog);
         response.put("authorized", accessLog.isAuthorized());
 
-        if (result.isMatch()) {
+        if (result.getMatch()) {
             List<AreaAccess> areaAccessList = areaAccessRepository.findByEmployeeId(result.getEmployeeId());
             var isAccessable = false;
             for (AreaAccess areaAccess : areaAccessList) {

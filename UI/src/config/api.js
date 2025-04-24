@@ -1,7 +1,5 @@
 // Basic API configuration
 const BASE_URL = "http://localhost:8080/api";
-const recognitionModelId = "00a14633-b05b-47ef-9990-db7a587398e4"; // Default segmentation model ID
-const segmentationModelId = "76bf4d29-becf-4297-842c-de2cec87a96d"; // Default recognition model ID
 
 // API utility functions
 export const apiService = {
@@ -152,9 +150,14 @@ export const apiService = {
   },
 
   // Fingerprint registration and recognition
-  registerFingerprint(employeeId, formData) {
-    formData.append("recognitionModelId", segmentationModelId); // Assuming a default model ID for recognition
-    formData.append("segmentationModelId", recognitionModelId);
+  registerFingerprint(
+    employeeId,
+    formData,
+    segmentationModelId,
+    recognitionModelId
+  ) {
+    formData.append("recognitionModelId", recognitionModelId); // Assuming a default model ID for recognition
+    formData.append("segmentationModelId", segmentationModelId);
     return fetch(
       `${BASE_URL}/fingerprint-sample/register/${employeeId}/single`,
       {
@@ -164,9 +167,9 @@ export const apiService = {
     ).then((response) => response.json());
   },
 
-  recognizeFingerprint(formData) {
-    formData.append("recognitionModelId", segmentationModelId); // Assuming a default model ID for recognition
-    formData.append("segmentationModelId", recognitionModelId); // Assuming a default model ID for segmentation
+  recognizeFingerprint(formData, segmentationModelId, recognitionModelId) {
+    formData.append("recognitionModelId", recognitionModelId); // Assuming a default model ID for recognition
+    formData.append("segmentationModelId", segmentationModelId); // Assuming a default model ID for segmentation
     return fetch(`${BASE_URL}/fingerprint-recognition/recognize`, {
       method: "POST",
       body: formData,
@@ -204,7 +207,7 @@ export const apiService = {
     return fetch(
       `${BASE_URL}/fingerprint-sample/by-segmentation-model/${modelId}`
     ).then((response) => response.json());
-  }
+  },
 };
 
 export default apiService;

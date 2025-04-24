@@ -1,10 +1,15 @@
 // ModelList.jsx
-import { formatFingerprintPosition } from '../../utils/formatters';
+import { formatFingerprintPosition } from '../utils/formatters';
 
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../config/api';
 
-export function ModelList() {
+export function ModelList({
+    setSegmentationModelId,
+    setRecognitionModelId,
+    segmentationModelId,
+    recognitionModelId
+}) {
     const [items, setItems] = useState([]);
     const [segmentationModels, setSegmentationModels] = useState([]);
     const [recognitionModels, setRecognitionModels] = useState([]);
@@ -89,15 +94,18 @@ export function ModelList() {
                     type="segmentation"
                     onViewDetails={handleViewModelDetails}
                     loading={loading && segmentationModels.length === 0}
+                    setModelId={setSegmentationModelId}
+                    currentModelId={segmentationModelId}
                 />
 
-                {/* Mô hình nhận dạng */}
                 <ModelTypeSection
                     title="Mô Hình Nhận Dạng"
                     models={recognitionModels}
                     type="recognition"
                     onViewDetails={handleViewModelDetails}
                     loading={loading && recognitionModels.length === 0}
+                    setModelId={setRecognitionModelId}
+                    currentModelId={recognitionModelId}
                 />
             </div>
 
@@ -115,33 +123,89 @@ export function ModelList() {
     );
 }
 
-// components/ModelTypeSection.jsx
-function ModelTypeSection({ title, models, type, onViewDetails, loading }) {
+function ModelTypeSection({
+    title,
+    models,
+    type,
+    onViewDetails,
+    loading,
+    setModelId,
+    currentModelId
+}) {
+    const [selectedId, setSelectedId] = useState('');
+    const [appliedId, setAppliedId] = useState('');
+
+    useEffect(() => {
+        if (currentModelId) {
+            setSelectedId(currentModelId);
+            setAppliedId(currentModelId);
+        }
+    }, [currentModelId, models]);
+
+    const selectedModel = models.find((m) => m.id === selectedId);
+    const isApplied = appliedId === selectedId;
+
+    const handleApply = () => {
+        if (selectedId) {
+            setModelId(selectedId);
+            setAppliedId(selectedId);
+        }
+    };
+
+    const handleViewClick = () => {
+        if (selectedModel) {
+            onViewDetails(selectedModel, type);
+        }
+    };
+
     return (
-        <div>
-            <h3 className="text-xl font-semibold mb-3">{title}</h3>
+        <div className="bg-white shadow rounded-lg p-4 border border-gray-200">
+            <h3 className="text-xl font-semibold mb-4">{title}</h3>
+
             {loading ? (
                 <div className="text-center py-4 text-gray-500">Đang tải dữ liệu...</div>
-            ) : (
-                <div className="space-y-2">
-                    {models.length > 0 ? (
-                        models.map((model) => (
-                            <ModelCard
-                                key={model.id}
-                                model={model}
-                                onClick={() => onViewDetails(model, type)}
-                            />
-                        ))
-                    ) : (
-                        <div className="text-center py-4 text-gray-500">
-                            Không có mô hình nào
-                        </div>
-                    )}
+            ) : models.length > 0 ? (
+                <div className="space-y-4">
+                    <select
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        value={selectedId}
+                        onChange={(e) => setSelectedId(e.target.value)}
+                    >
+                        <option value="">Chọn một mô hình</option>
+                        {models.map((model) => (
+                            <option key={model.id} value={model.id}>
+                                {model.name} — {(model.accuracy * 100).toFixed(2)}%
+                            </option>
+                        ))}
+                    </select>
+
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handleViewClick}
+                            disabled={!selectedId}
+                            className="bg-gray-100 hover:bg-gray-200 text-gray-800 font-medium px-4 py-2 rounded disabled:opacity-50"
+                        >
+                            Xem Chi Tiết
+                        </button>
+                        <button
+                            onClick={handleApply}
+                            disabled={!selectedId}
+                            className={`px-4 py-2 rounded text-white font-medium transition ${isApplied
+                                ? 'bg-green-600 cursor-default'
+                                : 'bg-blue-600 hover:bg-blue-700'
+                                } disabled:opacity-50`}
+                        >
+                            {isApplied ? 'Đã Áp Dụng' : 'Áp Dụng'}
+                        </button>
+                    </div>
                 </div>
+            ) : (
+                <div className="text-center py-4 text-gray-500">Không có mô hình nào</div>
             )}
         </div>
     );
 }
+
 
 function ModelCard({ model, onClick }) {
     return (

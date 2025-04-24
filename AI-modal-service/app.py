@@ -234,7 +234,7 @@ def recognize_employee(
     segmentation_model,
     recognition_shape,
     segmentation_shape,
-    threshold=1.0,
+    threshold=0.98,
     target_fingerprint_id=None,
 ):
     """Recognize employee from fingerprint"""
