@@ -20,12 +20,6 @@ public class FingerprintSample {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
-    private String image;
-
-    @Lob
-    @Column(columnDefinition = "LONGBLOB")
-    private byte[] imageData;
-
     private String position;
     private LocalDateTime capturedAt;
     private Double quality;

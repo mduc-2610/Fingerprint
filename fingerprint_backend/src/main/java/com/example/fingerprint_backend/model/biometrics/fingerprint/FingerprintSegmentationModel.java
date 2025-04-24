@@ -25,8 +25,4 @@ public class FingerprintSegmentationModel extends Model {
     @JsonIgnore
     @OneToMany(mappedBy = "fingerprintSegmentationModel", fetch = FetchType.LAZY)
     private List<Recognition> recognitions;
-
-    @JsonIgnore
-    @OneToMany(mappedBy = "fingerprintSegmentationModel", fetch = FetchType.LAZY)
-    private List<FSegmentationTData> regionTData;
 }

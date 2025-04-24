@@ -313,13 +313,18 @@ function FingerprintDetails({
   loading
 }) {
   const [localMaxSamples, setLocalMaxSamples] = useState(maxSamples);
+  const [hasActiveSamples, setHasActiveSamples] = useState(false);
 
   // Update local state when prop changes
   React.useEffect(() => {
     setLocalMaxSamples(maxSamples);
   }, [maxSamples]);
 
-  const hasActiveSamples = fingerprintSamples.some(sample => sample.active);
+  useEffect(() => {
+    const activeSamples = fingerprintSamples.filter(sample => sample.active).length;
+    setHasActiveSamples(activeSamples > 0);
+  }, [fingerprintSamples]);
+
 
   return (
     <>

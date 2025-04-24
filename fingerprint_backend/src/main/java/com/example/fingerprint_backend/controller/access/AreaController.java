@@ -1,9 +1,7 @@
 package com.example.fingerprint_backend.controller.access;
 
 import com.example.fingerprint_backend.model.access.Area;
-import com.example.fingerprint_backend.model.access.Camera;
 import com.example.fingerprint_backend.repository.access.AreaRepository;
-import com.example.fingerprint_backend.repository.access.CameraRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -17,7 +15,6 @@ import java.util.Optional;
 public class AreaController {
 
     private final AreaRepository areaRepository;
-    private final CameraRepository cameraRepository;
 
     @GetMapping
     public List<Area> getAllAreas() {
@@ -52,14 +49,5 @@ public class AreaController {
         }
         areaRepository.deleteById(id);
         return ResponseEntity.noContent().build();
-    }
-
-    @GetMapping("/{id}/cameras")
-    public ResponseEntity<List<Camera>> getAreaCameras(@PathVariable String id) {
-        if (!areaRepository.existsById(id)) {
-            return ResponseEntity.notFound().build();
-        }
-        List<Camera> cameras = cameraRepository.findByAreaId(id);
-        return ResponseEntity.ok(cameras);
     }
 }

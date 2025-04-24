@@ -2,7 +2,6 @@ package com.example.fingerprint_backend.controller.biometrics.fingerprint;
 
 import com.example.fingerprint_backend.controller.base.ModelController;
 import com.example.fingerprint_backend.model.base.Model;
-import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintRecognitionModel;
 import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintSegmentationModel;
 import com.example.fingerprint_backend.repository.biometrics.fingerprint.FingerprintSampleRepository;
 import com.example.fingerprint_backend.repository.biometrics.fingerprint.FingerprintSegmentationModelRepository;

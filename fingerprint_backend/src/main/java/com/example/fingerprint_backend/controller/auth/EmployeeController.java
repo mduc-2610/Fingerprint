@@ -1,10 +1,8 @@
 package com.example.fingerprint_backend.controller.auth;
 
-import com.example.fingerprint_backend.model.access.AccessLog;
 import com.example.fingerprint_backend.model.analytics.EmployeeStatistics;
 import com.example.fingerprint_backend.model.auth.Employee;
 import com.example.fingerprint_backend.model.biometrics.fingerprint.FingerprintSample;
-import com.example.fingerprint_backend.repository.access.AccessLogRepository;
 import com.example.fingerprint_backend.repository.auth.EmployeeRepository;
 import com.example.fingerprint_backend.repository.biometrics.fingerprint.FingerprintSampleRepository;
 import lombok.RequiredArgsConstructor;
@@ -23,8 +21,6 @@ public class EmployeeController {
 
     private final FingerprintSampleRepository fingerprintSampleRepository;
     private final EmployeeRepository employeeRepository;
-    private final AccessLogRepository accessLogRepository;
-
 
     @GetMapping
     public List<Employee> getAllEmployees() {

@@ -23,9 +23,5 @@ public class Area {
 
     @JsonIgnore
     @OneToMany(mappedBy = "area", fetch = FetchType.LAZY)
-    private List<Camera> cameras;
-
-    @JsonIgnore
-    @OneToMany(mappedBy = "area", fetch = FetchType.LAZY)
     private List<AccessLog> accessLogs;
 }

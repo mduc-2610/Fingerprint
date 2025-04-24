@@ -89,7 +89,7 @@ export function RecognizeFingerprint({
 
             setRecognitionResult(response);
         } catch (err) {
-            const apiError = err?.response?.data?.message || err.message || 'Lỗi nhận dạng dấu vân tay';
+            const apiError = err?.response?.data?.message || err.message || error.error || 'Lỗi nhận dạng dấu vân tay';
             setError(apiError);
         }
     };
@@ -199,8 +199,8 @@ export function RecognizeFingerprint({
                                 </div>
 
                                 <p>Độ Chính Xác: {(recognitionResult.confidence * 100).toFixed(2)}%</p>
-                                <p>Thời Gian: {new Date(recognitionResult.accessLog.timestamp).toLocaleString()}</p>
-                                <p>Khu Vực: {recognitionResult.accessLog.area?.name || 'Không xác định'}</p>
+                                <p>Thời Gian: {new Date(recognitionResult.accessLog?.timestamp).toLocaleString()}</p>
+                                <p>Khu Vực: {recognitionResult.accessLog?.area?.name || 'Không xác định'}</p>
                             </div>
                         </div>
                     ) : (
@@ -208,8 +208,8 @@ export function RecognizeFingerprint({
                             <h3 className="text-lg font-semibold mb-2">Nhận Dạng Thất Bại</h3>
                             <p>Không tìm thấy dấu vân tay phù hợp</p>
                             <p>Độ Chính Xác: {(recognitionResult.confidence * 100).toFixed(2)}%</p>
-                            <p>Thời Gian: {new Date(recognitionResult.accessLog.timestamp).toLocaleString()}</p>
-                            <p>Khu Vực: {recognitionResult.accessLog.area?.name || 'Không xác định'}</p>
+                            <p>Thời Gian: {new Date(recognitionResult.accessLog?.timestamp).toLocaleString()}</p>
+                            <p>Khu Vực: {recognitionResult.accessLog?.area?.name || 'Không xác định'}</p>
                         </div>
                     )}
                 </div>

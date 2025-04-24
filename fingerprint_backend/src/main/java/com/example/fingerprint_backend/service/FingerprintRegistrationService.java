@@ -75,8 +75,6 @@ public class FingerprintRegistrationService {
             // Lưu mẫu vân tay vào cơ sở dữ liệu
             FingerprintSample sample = FingerprintSample.builder()
                     .employee(employee)
-                    .image(file.getOriginalFilename())
-                    .imageData(fileBytes)
                     .position(position)
                     .capturedAt(LocalDateTime.now())
                     .fingerprintSegmentationModel(segmentationModel)

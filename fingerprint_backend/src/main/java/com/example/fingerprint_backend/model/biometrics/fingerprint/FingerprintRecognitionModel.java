@@ -25,8 +25,4 @@ public class FingerprintRecognitionModel extends Model {
     @JsonIgnore
     @OneToMany(mappedBy = "fingerprintRecognitionModel", fetch = FetchType.LAZY)
     private List<Recognition> recognitions;
-
-    @JsonIgnore
-    @OneToMany(mappedBy = "fingerprintRecognitionModel", fetch = FetchType.LAZY)
-    private List<FRecognitionTData> recognitionTData;
 }

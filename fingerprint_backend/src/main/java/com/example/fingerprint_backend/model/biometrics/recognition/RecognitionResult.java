@@ -10,12 +10,4 @@ public class RecognitionResult {
     private final double confidence;
     private final String fingerprintId;
     private final Boolean match;
-
-    public String getEmployeeId() {
-        return employeeId;
-    }
-
-    public double getConfidence() {
-        return confidence;
-    }
 }
