@@ -175,7 +175,7 @@ public class FingerprintRecognitionService {
         response.put("accessLog", accessLog);
         response.put("authorized", accessLog.isAuthorized());
 
-        if (result.isMatch()) {
+        if (result.isMatch() && result.getConfidence() >= 1.00) {
             List<AreaAccess> areaAccessList = areaAccessRepository.findByEmployeeId(result.getEmployeeId());
             var isAccessable = false;
             for (AreaAccess areaAccess : areaAccessList) {
@@ -198,9 +198,11 @@ public class FingerprintRecognitionService {
             if (employee.isPresent()) {
                 response.put("employee", employee.get());
             } else {
-                response.put("message", "Employee not found in the database but fingerprint matched");
+                response.put("employee", null);
             }
-
+        } else {
+            // If confidence is less than 1.00, set employee to null
+            response.put("employee", null);
         }
 
         return response;
@@ -224,7 +226,8 @@ public class FingerprintRecognitionService {
                 .accessType(accessType)
                 .build();
 
-        if (isMatched && employeeId != null) {
+        // Only set employee and authorize if confidence is exactly 1.0
+        if (isMatched && confidence >= 1.0 && employeeId != null) {
             Optional<Employee> employeeOpt = employeeRepository.findById(employeeId);
 
             if (employeeOpt.isPresent()) {
@@ -235,9 +238,11 @@ public class FingerprintRecognitionService {
                 accessLog.setAuthorized(authorized);
             } else {
                 accessLog.setAuthorized(false);
+                accessLog.setEmployee(null);
             }
         } else {
             accessLog.setAuthorized(false);
+            accessLog.setEmployee(null);
         }
 
         AccessLog savedAccessLog = accessLogRepository.save(accessLog);
@@ -250,7 +255,8 @@ public class FingerprintRecognitionService {
                     .orElseThrow(() -> new Exception("Recognition model not found"));
 
             Employee employee = null;
-            if (employeeId != null) {
+            // Only create recognition record if confidence is exactly 1.0
+            if (isMatched && confidence == 1.0 && employeeId != null) {
                 employee = employeeRepository.findById(employeeId).orElse(null);
             }
 

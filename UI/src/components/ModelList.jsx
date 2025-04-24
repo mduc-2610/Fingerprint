@@ -1,5 +1,5 @@
 // ModelList.jsx
-import { formatFingerprintPosition } from '../../utils/formatters';
+import { formatFingerprintPosition } from '../utils/formatters';
 
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../config/api';

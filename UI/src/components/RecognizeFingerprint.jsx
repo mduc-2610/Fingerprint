@@ -3,33 +3,54 @@ import { apiService } from '../config/api';
 
 export function RecognizeFingerprint() {
     const [areas, setAreas] = useState([]);
+    const [segmentationModels, setSegmentationModels] = useState([]);
+    const [recognitionModels, setRecognitionModels] = useState([]);
     const [fingerprintFile, setFingerprintFile] = useState(null);
     const [previewImage, setPreviewImage] = useState(null);
     const [selectedArea, setSelectedArea] = useState('');
+    const [selectedSegmentationModel, setSelectedSegmentationModel] = useState('');
+    const [selectedRecognitionModel, setSelectedRecognitionModel] = useState('');
+    const [selectedAccessType, setSelectedAccessType] = useState('ENTRY');
     const [recognitionResult, setRecognitionResult] = useState(null);
     const [error, setError] = useState(null);
     const [notification, setNotification] = useState("");
 
-    // Tải danh sách khu vực
+    const ACCESS_TYPES = [
+        { value: 'ENTRY', label: 'Vào' },
+        { value: 'EXIT', label: 'Ra' },
+    ];
+
     useEffect(() => {
-        const loadAreas = async () => {
+        const loadData = async () => {
             try {
-                const response = await apiService.getAreas();
-                setAreas(response);
+                const [areasResponse, segModelsResponse, recModelsResponse] = await Promise.all([
+                    apiService.getAreas(),
+                    apiService.getSegmentationModels(),
+                    apiService.getRecognitionModels()
+                ]);
+
+                setAreas(areasResponse);
+                setSegmentationModels(segModelsResponse);
+                setRecognitionModels(recModelsResponse);
+
+                if (segModelsResponse.length > 0) {
+                    setSelectedSegmentationModel(segModelsResponse[0].id);
+                }
+                if (recModelsResponse.length > 0) {
+                    setSelectedRecognitionModel(recModelsResponse[0].id);
+                }
             } catch (error) {
-                setError('Lỗi tải danh sách khu vực');
+                setError('Lỗi tải dữ liệu');
             }
         };
 
-        loadAreas();
+        loadData();
     }, []);
 
-    // Xử lý tải ảnh xem trước
     const handleFileChange = (e) => {
         const file = e.target.files[0];
         setFingerprintFile(file);
 
-        // Tạo ảnh xem trước
         const reader = new FileReader();
         reader.onloadend = () => {
             setPreviewImage(reader.result);
@@ -37,11 +58,9 @@ export function RecognizeFingerprint() {
         reader.readAsDataURL(file);
     };
 
-    // Xử lý nhận dạng dấu vân tay
     const handleRecognizeFingerprint = async (e) => {
         e.preventDefault();
 
-        // Kiểm tra đầu vào
         if (!fingerprintFile) {
             setError('Vui lòng chọn ảnh dấu vân tay');
             return;
@@ -50,14 +69,23 @@ export function RecognizeFingerprint() {
             setError('Vui lòng chọn khu vực');
             return;
         }
+        if (!selectedSegmentationModel) {
+            setError('Vui lòng chọn mô hình phân đoạn');
+            return;
+        }
+        if (!selectedRecognitionModel) {
+            setError('Vui lòng chọn mô hình nhận dạng');
+            return;
+        }
 
         try {
-            // Tạo form data
             const formData = new FormData();
             formData.append('file', fingerprintFile);
             formData.append('areaId', selectedArea);
+            formData.append('segmentationModelId', selectedSegmentationModel);
+            formData.append('recognitionModelId', selectedRecognitionModel);
+            formData.append('accessType', selectedAccessType);
 
-            // Gọi API nhận dạng
             const response = await apiService.recognizeFingerprint(formData);
 
             setRecognitionResult(response);
@@ -70,7 +98,10 @@ export function RecognizeFingerprint() {
 
     useEffect(() => {
         if (recognitionResult) {
-            if (!recognitionResult.active) {
+            if(!recognitionResult.employee) {
+                setNotification("Không tìm thấy nhân viên nào phù hợp với dấu vân tay này");
+            }
+            else if (!recognitionResult.active) {
                 setNotification("Dấu vân tay không hoạt động");
             } else if (!recognitionResult.accessable) {
                 setNotification("Dấu vân tay không có quyền truy cập vào khu vực này");
@@ -79,16 +110,15 @@ export function RecognizeFingerprint() {
             } else {
                 setNotification("Dấu vân tay không được xác nhận");
             }
-
         }
-    }
-        , [recognitionResult]);
+    }, [recognitionResult]);
 
     return (
         <div>
             <h2 className="text-2xl font-semibold mb-4">Nhận Dạng Dấu Vân Tay</h2>
 
             <form onSubmit={handleRecognizeFingerprint} className="space-y-4">
+                {/* Area Selection */}
                 <div>
                     <label className="block mb-2">Khu Vực</label>
                     <select
@@ -105,6 +135,57 @@ export function RecognizeFingerprint() {
                     </select>
                 </div>
 
+                {/* Segmentation Model Selection */}
+                <div>
+                    <label className="block mb-2">Mô Hình Phân Đoạn</label>
+                    <select
+                        value={selectedSegmentationModel}
+                        onChange={(e) => setSelectedSegmentationModel(e.target.value)}
+                        className="w-full p-2 border rounded-md"
+                    >
+                        <option value="">Chọn mô hình phân đoạn</option>
+                        {segmentationModels.map((model) => (
+                            <option key={model.id} value={model.id}>
+                                {model.name || model.id}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* Recognition Model Selection */}
+                <div>
+                    <label className="block mb-2">Mô Hình Nhận Dạng</label>
+                    <select
+                        value={selectedRecognitionModel}
+                        onChange={(e) => setSelectedRecognitionModel(e.target.value)}
+                        className="w-full p-2 border rounded-md"
+                    >
+                        <option value="">Chọn mô hình nhận dạng</option>
+                        {recognitionModels.map((model) => (
+                            <option key={model.id} value={model.id}>
+                                {model.name || model.id}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* Access Type Selection */}
+                <div>
+                    <label className="block mb-2">Loại Truy Cập</label>
+                    <select
+                        value={selectedAccessType}
+                        onChange={(e) => setSelectedAccessType(e.target.value)}
+                        className="w-full p-2 border rounded-md"
+                    >
+                        {ACCESS_TYPES.map((type) => (
+                            <option key={type.value} value={type.value}>
+                                {type.label}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+
+                {/* Fingerprint File Input */}
                 <div>
                     <label className="block mb-2">Ảnh Dấu Vân Tay</label>
                     <input
@@ -115,7 +196,7 @@ export function RecognizeFingerprint() {
                     />
                 </div>
 
-                {/* Xem trước ảnh */}
+                {/* Image Preview */}
                 {previewImage && (
                     <div className="text-center">
                         <img
@@ -126,7 +207,7 @@ export function RecognizeFingerprint() {
                     </div>
                 )}
 
-                {/* Hiển thị lỗi */}
+                {/* Error Display */}
                 {error && (
                     <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
                         {error}
@@ -141,18 +222,18 @@ export function RecognizeFingerprint() {
                 </button>
             </form>
 
-            {/* Kết quả nhận dạng */}
+            {/* Recognition Result */}
             {recognitionResult && (
                 <div className="mt-6">
                     {recognitionResult.matched ? (
                         <div className={`
-              p-4 rounded-lg 
-              ${recognitionResult.authorized && recognitionResult.accessable && recognitionResult.active ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}
-            `}>
+                            p-4 rounded-lg 
+                            ${recognitionResult.authorized && recognitionResult.accessable && recognitionResult.active ? 'bg-green-50 border-green-200' : 'bg-yellow-50 border-yellow-200'}
+                        `}>
                             <h3 className={`
-                text-lg font-semibold mb-2 
-                ${recognitionResult.authorized && recognitionResult.accessable && recognitionResult.active ? 'text-green-700' : 'text-yellow-700'}
-              `}>
+                                text-lg font-semibold mb-2 
+                                ${recognitionResult.authorized && recognitionResult.accessable && recognitionResult.active ? 'text-green-700' : 'text-yellow-700'}
+                            `}>
                                 {notification}
                             </h3>
 
@@ -174,6 +255,7 @@ export function RecognizeFingerprint() {
                                 <p>Độ Chính Xác: {(recognitionResult.confidence * 100).toFixed(2)}%</p>
                                 <p>Thời Gian: {new Date(recognitionResult.accessLog.timestamp).toLocaleString()}</p>
                                 <p>Khu Vực: {recognitionResult.accessLog.area?.name || 'Không xác định'}</p>
+                                <p>Loại Truy Cập: {selectedAccessType}</p>
                             </div>
                         </div>
                     ) : (
@@ -183,6 +265,7 @@ export function RecognizeFingerprint() {
                             <p>Độ Chính Xác: {(recognitionResult.confidence * 100).toFixed(2)}%</p>
                             <p>Thời Gian: {new Date(recognitionResult.accessLog.timestamp).toLocaleString()}</p>
                             <p>Khu Vực: {recognitionResult.accessLog.area?.name || 'Không xác định'}</p>
+                            <p>Loại Truy Cập: {selectedAccessType}</p>
                         </div>
                     )}
                 </div>

@@ -153,8 +153,6 @@ export const apiService = {
 
   // Fingerprint registration and recognition
   registerFingerprint(employeeId, formData) {
-    formData.append("recognitionModelId", segmentationModelId); // Assuming a default model ID for recognition
-    formData.append("segmentationModelId", recognitionModelId);
     return fetch(
       `${BASE_URL}/fingerprint-sample/register/${employeeId}/single`,
       {
@@ -165,8 +163,6 @@ export const apiService = {
   },
 
   recognizeFingerprint(formData) {
-    formData.append("recognitionModelId", segmentationModelId); // Assuming a default model ID for recognition
-    formData.append("segmentationModelId", recognitionModelId); // Assuming a default model ID for segmentation
     return fetch(`${BASE_URL}/fingerprint-recognition/recognize`, {
       method: "POST",
       body: formData,
