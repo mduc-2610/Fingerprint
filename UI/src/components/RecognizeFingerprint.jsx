@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../config/api';
-import { use } from 'react';
 
 export function RecognizeFingerprint() {
     const [areas, setAreas] = useState([]);
